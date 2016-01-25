@@ -13,7 +13,6 @@ bin/
 gen/
 
 # Gradle files
-.gradle/
 build/
 */build/
 
@@ -82,3 +81,9 @@ $RECYCLE.BIN/
 
 # Windows shortcuts
 *.lnk
+
+#Android studio
+*.iml
+/.idea/workspace.xml
+/.idea/libraries
+/captures
