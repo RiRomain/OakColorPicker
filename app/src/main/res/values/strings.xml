@@ -2,15 +2,21 @@
     <string name="app_name">ColorPickerOak2</string>
 
     <!-- Strings related to login -->
+    <string name="ok">Ok</string>
     <string name="prompt_email">DeviceID</string>
     <string name="prompt_password">Access token</string>
     <string name="action_sign_in">Connect OAK device</string>
     <string name="action_sign_in_short">Connect OAK</string>
     <string name="error_invalid_email">This device ID is invalid</string>
+    <string name="error_fetch_actual_value">Error while fetching actual set value</string>
+    <string name="error_set_new_value">Error while setting new value</string>
+    <string name="error_fetch_name">Error while fetching your device name</string>
     <string name="error_invalid_password">This access token is too short</string>
     <string name="error_incorrect_password">This access token is incorrect</string>
     <string name="error_field_required">This field is required</string>
     <string name="permission_rationale">"Contacts permissions are needed for providing email
         completions."
     </string>
+    <string name="title_activity_main_oak">MainOakActivity</string>
+    <string name="loading_previous_value">Retrieving previous set value</string>
 </resources>

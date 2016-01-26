@@ -3,21 +3,21 @@ package com.riromain.oak.colorpickeroak2;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.annotation.TargetApi;
-import android.content.pm.PackageManager;
-import android.support.annotation.NonNull;
-import android.support.design.widget.Snackbar;
-import android.support.v7.app.AppCompatActivity;
 import android.app.LoaderManager.LoaderCallbacks;
-
 import android.content.CursorLoader;
+import android.content.Intent;
 import android.content.Loader;
+import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.AsyncTask;
-
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.ContactsContract;
+import android.support.annotation.NonNull;
+import android.support.design.widget.Snackbar;
+import android.support.v7.app.AppCompatActivity;
 import android.text.TextUtils;
 import android.view.KeyEvent;
 import android.view.View;
@@ -29,15 +29,14 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 
-import com.larswerkman.holocolorpicker.ColorPicker;
-import com.larswerkman.holocolorpicker.SVBar;
-import com.larswerkman.holocolorpicker.ValueBar;
+import com.riromain.oak.colorpickeroak2.http.helper.HttpGETEntityAsString;
+import com.riromain.oak.colorpickeroak2.http.result.ObjectWithPotentialError;
+import com.riromain.oak.colorpickeroak2.http.result.ObjectWithPotentialErrorImpl;
+import com.riromain.oak.colorpickeroak2.object.OakInfo;
 
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.net.MalformedURLException;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -64,24 +63,28 @@ public class ConfigOakActivity extends AppCompatActivity implements LoaderCallba
     private HttpAsynchTask mOakNameTask = null;
 
     // UI references.
-    private AutoCompleteTextView mEmailView;
-    private EditText mPasswordView;
+    private AutoCompleteTextView mDeviceIdView;
+    private EditText mAccessTokenView;
     private View mProgressView;
     private View mLoginFormView;
-    private View mRGBFormView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_config_oak);
+        SharedPreferences pref = getSharedPreferences(PrefConst.PREFS_NAME, 0);
+        //Start main activity if account already configured
+        if (pref.contains(PrefConst.DEVICE_ID_KEY) && pref.contains(PrefConst.ACCESS_TOKEN_KEY)) {
+            startMainActivity();
+        }
         // Set up the login form.
-        mEmailView = (AutoCompleteTextView) findViewById(R.id.email);
-        mEmailView.setText("--YOUR_DEVICE_ID--");
+        mDeviceIdView = (AutoCompleteTextView) findViewById(R.id.email);
+        mDeviceIdView.setText(pref.getString(PrefConst.DEVICE_ID_KEY, ""));
         populateAutoComplete();
 
-        mPasswordView = (EditText) findViewById(R.id.password);
-        mPasswordView.setText("--YOUR_ACCESS_TOKEN--");
-        mPasswordView.setOnEditorActionListener(new TextView.OnEditorActionListener() {
+        mAccessTokenView = (EditText) findViewById(R.id.password);
+        mAccessTokenView.setText(pref.getString(PrefConst.ACCESS_TOKEN_KEY, ""));
+        mAccessTokenView.setOnEditorActionListener(new TextView.OnEditorActionListener() {
             @Override
             public boolean onEditorAction(TextView textView, int id, KeyEvent keyEvent) {
                 if (id == R.id.login || id == EditorInfo.IME_NULL) {
@@ -102,12 +105,10 @@ public class ConfigOakActivity extends AppCompatActivity implements LoaderCallba
 
         mLoginFormView = findViewById(R.id.login_form);
         mProgressView = findViewById(R.id.login_progress);
-       /* mRGBFormView = findViewById(R.id.rgb_picker_container_form);
-        ColorPicker picker = (ColorPicker) findViewById(R.id.picker);
-        SVBar svBar = (SVBar) findViewById(R.id.svbar);
-        ValueBar valueBar = (ValueBar) findViewById(R.id.valuebar);
-        picker.addSVBar(svBar);
-        picker.addValueBar(valueBar);*/
+    }
+
+    private void startMainActivity() {
+        startActivity(new Intent(this, MainOakActivity.class));
     }
 
     private void populateAutoComplete() {
@@ -126,7 +127,7 @@ public class ConfigOakActivity extends AppCompatActivity implements LoaderCallba
             return true;
         }
         if (shouldShowRequestPermissionRationale(READ_CONTACTS)) {
-            Snackbar.make(mEmailView, R.string.permission_rationale, Snackbar.LENGTH_INDEFINITE)
+            Snackbar.make(mDeviceIdView, R.string.permission_rationale, Snackbar.LENGTH_INDEFINITE)
                     .setAction(android.R.string.ok, new View.OnClickListener() {
                         @Override
                         @TargetApi(Build.VERSION_CODES.M)
@@ -139,6 +140,7 @@ public class ConfigOakActivity extends AppCompatActivity implements LoaderCallba
         }
         return false;
     }
+
 
     /**
      * Callback received when a permissions request has been completed.
@@ -153,7 +155,6 @@ public class ConfigOakActivity extends AppCompatActivity implements LoaderCallba
         }
     }
 
-
     /**
      * Attempts to sign in or register the account specified by the login form.
      * If there are form errors (invalid email, missing fields, etc.), the
@@ -165,31 +166,31 @@ public class ConfigOakActivity extends AppCompatActivity implements LoaderCallba
         }
 
         // Reset errors.
-        mEmailView.setError(null);
-        mPasswordView.setError(null);
+        mDeviceIdView.setError(null);
+        mAccessTokenView.setError(null);
 
         // Store values at the time of the login attempt.
-        String deviceId = mEmailView.getText().toString();
-        String accessToken = mPasswordView.getText().toString();
+        String deviceId = mDeviceIdView.getText().toString();
+        String accessToken = mAccessTokenView.getText().toString();
 
         boolean cancel = false;
         View focusView = null;
 
         // Check for a valid password, if the user entered one.
         if (!TextUtils.isEmpty(accessToken) && !isAccessTokenValid(accessToken)) {
-            mPasswordView.setError(getString(R.string.error_invalid_password));
-            focusView = mPasswordView;
+            mAccessTokenView.setError(getString(R.string.error_invalid_password));
+            focusView = mAccessTokenView;
             cancel = true;
         }
 
         // Check for a valid email address.
         if (TextUtils.isEmpty(deviceId)) {
-            mEmailView.setError(getString(R.string.error_field_required));
-            focusView = mEmailView;
+            mDeviceIdView.setError(getString(R.string.error_field_required));
+            focusView = mDeviceIdView;
             cancel = true;
         } else if (!isDeviceIDValid(deviceId)) {
-            mEmailView.setError(getString(R.string.error_invalid_email));
-            focusView = mEmailView;
+            mDeviceIdView.setError(getString(R.string.error_invalid_email));
+            focusView = mDeviceIdView;
             cancel = true;
         }
 
@@ -201,65 +202,67 @@ public class ConfigOakActivity extends AppCompatActivity implements LoaderCallba
             // Show a progress spinner, and kick off a background task to
             // perform the user login attempt.
             showProgress(true);
+            saveCredentialInAccountManager(deviceId, accessToken);
             mOakNameTask = new HttpAsynchTask();
-            mOakNameTask.execute(getDeviceNameUri(deviceId, accessToken));
+            mOakNameTask.execute(new OakInfo(deviceId, accessToken));
         }
     }
 
-    private class HttpAsynchTask extends AsyncTask<URL, Void, String> {
+    private void saveCredentialInAccountManager(String deviceId, String accessToken) {
+        SharedPreferences sharedPreferences = getSharedPreferences(PrefConst.PREFS_NAME, 0);
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+        editor.putString(PrefConst.DEVICE_ID_KEY, deviceId);
+        editor.putString(PrefConst.ACCESS_TOKEN_KEY, accessToken);
+        editor.commit();
+    }
 
-       @Override
-       protected String doInBackground(URL... params) {
-           return getDeviceName(params[0]);
-       }
-       @Override
-       protected void onPostExecute(final String success) {
-         //  mAuthTask = null;
-           mOakNameTask = null;
-           showProgress(false);
-
-           if (success.length() > 2) {
-               setContentView(R.layout.activity_use_oak);
-               mRGBFormView = findViewById(R.id.rgb_picker_container_form);
-               mRGBFormView.setVisibility(View.VISIBLE);
-              // finish();
-           } else {
-               mPasswordView.setError(success);
-               mPasswordView.requestFocus();
+    private class HttpAsynchTask extends AsyncTask<OakInfo, Void, ObjectWithPotentialError<String>> {
+        @Override
+       protected ObjectWithPotentialError<String> doInBackground(OakInfo... params) {
+           ObjectWithPotentialError<String> resp = HttpGETEntityAsString.getName(params[0]);
+           if (resp.getError() != null || resp.getErrorCode() != null) {
+               return resp;
+           }
+           if (resp.getContent() == null) {
+               return new ObjectWithPotentialErrorImpl<>(0, "Received response is empty");
+           }
+           try {
+               JSONObject reader = new JSONObject(resp.getContent());
+               return new ObjectWithPotentialErrorImpl<>(reader.getString("name"));
+           } catch (JSONException e) {
+               e.printStackTrace();
+               return new ObjectWithPotentialErrorImpl<>(0, "JSONException while extracting name " + e.getMessage());
            }
        }
 
        @Override
+       protected void onPostExecute(final ObjectWithPotentialError<String> resp) {
+         //  mAuthTask = null;
+           mOakNameTask = null;
+           showProgress(false);
+
+           if (resp.getErrorCode() == null && resp.getError() == null && null != resp.getContent()) {
+               startMainActivity();
+              // finish();
+           } else {
+               String error = getText(R.string.error_fetch_name) + " - Error code: " + resp.getErrorCode() + " - " + resp.getError();
+               ErrorDialog errorDialog = new ErrorDialog();
+               Bundle args = new Bundle(1);
+               args.putString(ErrorDialog.ERROR_INFO, error);
+               errorDialog.setArguments(args);
+               errorDialog.show(getFragmentManager(), "errordialog");
+           }
+       }
+        @Override
        protected void onCancelled() {
            //TODO reactivate in need     mAuthTask = null;
            showProgress(false);
        }
+
    }
 
     private boolean isDeviceIDValid(String deviceID) {
         return deviceID.length() > 5;
-    }
-
-    private String getDeviceName(URL url) {
-        HttpGetStringResp resp = HttpGETEntityAsString.execute(url);
-        if (resp.getError() != null) {
-            return null;
-        }
-        try {
-            JSONObject reader = new JSONObject(resp.getContent());
-            return reader.getString("name");
-        } catch (JSONException e) {
-            e.printStackTrace();
-            return "Error while geting name " + e.getMessage();
-        }
-    }
-    private URL getDeviceNameUri(String deviceId, String accessToken) {
-        try {
-            return new URL("https://api.particle.io/v1/devices/" + deviceId + "/?access_token=" + accessToken);
-        } catch (MalformedURLException e) {
-            e.printStackTrace();
-            return null;
-        }
     }
 
     private boolean isAccessTokenValid(String accessToken) {
@@ -343,7 +346,7 @@ public class ConfigOakActivity extends AppCompatActivity implements LoaderCallba
                 new ArrayAdapter<>(ConfigOakActivity.this,
                         android.R.layout.simple_dropdown_item_1line, emailAddressCollection);
 
-        mEmailView.setAdapter(adapter);
+        mDeviceIdView.setAdapter(adapter);
     }
 
 
