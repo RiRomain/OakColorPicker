@@ -23,10 +23,10 @@ public class HttpPostNewValue {
     private HttpPostNewValue() {
     }
 
-    public static ObjectWithPotentialError<String> execute(final SetNewValueInfo setNewValueInfo) {
+    public static ObjectWithPotentialError<String> execute(final SetNewValueInfo info) {
         URL url = null;
         try {
-            url = new URL("https://api.particle.io/v1/devices/" + setNewValueInfo.getDeviceId() + "/setValue/?access_token=" + setNewValueInfo.getAccessToken());
+            url = new URL("https://api.particle.io/v1/devices/" + info.getDeviceId() + "/" + info.getServiceId() + "/?access_token=" + info.getAccessToken());
             //Proxy proxy = new Proxy(Proxy.Type.HTTP, new InetSocketAddress("192.168.100.4", 8080));
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();//proxy);
             connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
@@ -37,7 +37,7 @@ public class HttpPostNewValue {
             connection.setDoOutput(true);
             OutputStream os = connection.getOutputStream();
             BufferedWriter bufferedWriter = new BufferedWriter(new OutputStreamWriter(os, "UTF-8"));
-            bufferedWriter.write("args=" + setNewValueInfo.getNewValue());
+            bufferedWriter.write("args=" + info.getNewValue());
             bufferedWriter.flush();
             bufferedWriter.close();
             int responseCode =  connection.getResponseCode();

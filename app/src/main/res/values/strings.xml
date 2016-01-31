@@ -1,8 +1,8 @@
 <resources>
-    <string name="app_name">ColorPickerOak2</string>
+    <string name="app_name">Oak Color Picker</string>
 
     <!-- Strings related to login -->
-    <string name="ok">Ok</string>
+    <string name="ok">OK</string>
     <string name="prompt_email">DeviceID</string>
     <string name="prompt_password">Access token</string>
     <string name="action_sign_in">Connect OAK device</string>
@@ -17,6 +17,8 @@
     <string name="permission_rationale">"Contacts permissions are needed for providing email
         completions."
     </string>
-    <string name="title_activity_main_oak">MainOakActivity</string>
+    <string name="title_activity_main_oak">Please pick the wished value</string>
     <string name="loading_previous_value">Retrieving previous set value</string>
+    <string name="boutton_on">ON</string>
+    <string name="button_off">OFF</string>
 </resources>

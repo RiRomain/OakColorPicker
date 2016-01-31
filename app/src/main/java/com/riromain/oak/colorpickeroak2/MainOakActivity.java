@@ -31,12 +31,12 @@ public class MainOakActivity extends AppCompatActivity implements ColorPicker.On
     private static final String TAG = "MainOakActivity";
 
     public static final int STEP = 10;
-    public static final int MAX_OUTPUT = 1023;
 
     private enum RGB {
         RED,
         GREEN,
-        BLUE;
+        BLUE,
+        INTENSITY;
 
     }
     private View mRGBFormView;
@@ -44,7 +44,7 @@ public class MainOakActivity extends AppCompatActivity implements ColorPicker.On
     private Integer oldRedValue;
     private Integer oldGreenValue;
     private Integer oldBlueValue;
-    private Integer oldOpacity;
+    private Integer oldIntensity;
     private ColorPicker colorPicker;
     private OpacityBar opacityBar;
     private OakInfo oakInfo;
@@ -75,22 +75,22 @@ public class MainOakActivity extends AppCompatActivity implements ColorPicker.On
 
     @Override
     public void onOpacityChanged(int opacity) {
-        if (null == oldOpacity || opacity == oldOpacity || null == oldRedValue || null == oldGreenValue || null == oldBlueValue) {
+        if (null == oldIntensity || null == oldRedValue || null == oldGreenValue || null == oldBlueValue) {
             //Value not finished to be retrieved yet, do nothing
             //Or, no change detected
             return;
         }
-        if (differenceIsWideEnough(opacity, oldOpacity) || 0 == opacity || 255 == opacity) {
+        if (differenceIsWideEnough(opacity, oldIntensity) || 0 == opacity || 255 == opacity) {
             Log.v(TAG, "onOpacityChanged");
-            Log.v(TAG, "setting new opacity [" + opacity + "] - old was [" + opacity + "]");
-            oldOpacity = opacity;
-            sendValueToBoard();
+            Log.v(TAG, "setting new opacity [" + opacity + "] - old was [" + oldIntensity + "]");
+            oldIntensity = opacity;
+            sendOpacityToBoard();
         }
     }
 
     @Override
     public void onColorChanged(int color) {
-        if (null == oldRedValue || null == oldGreenValue || null == oldBlueValue || null == oldOpacity) {
+        if (null == oldRedValue || null == oldGreenValue || null == oldBlueValue || null == oldIntensity) {
             //Value not finished to be retrieved yet, do nothing
             return;
         }
@@ -110,30 +110,25 @@ public class MainOakActivity extends AppCompatActivity implements ColorPicker.On
 
     private void sendValueToBoard() {
         HttpPOSTValueTask postValueTask = new HttpPOSTValueTask();
-        String formatedValue = getFormatedValue(oldRedValue, oldGreenValue, oldBlueValue);
-        postValueTask.execute(new SetNewValueInfo(oakInfo, formatedValue));
+        String formattedValue = getFormattedValues(oldRedValue, oldGreenValue, oldBlueValue);
+        Log.v(TAG, "sendingValue [" + formattedValue + "] to board");
+        postValueTask.execute(new SetNewValueInfo(oakInfo, formattedValue, "value"));
+    }
+
+    private void sendOpacityToBoard() {
+        HttpPOSTValueTask postValueTask = new HttpPOSTValueTask();
+        String formattedValue = getFormattedValues(oldIntensity);
+        Log.v(TAG, "sendingIntensity [" + formattedValue + "] to board");
+        postValueTask.execute(new SetNewValueInfo(oakInfo, formattedValue, "intensity"));
     }
 
     @NonNull
-    private String getFormatedValue(int redValue, int greenValue, int blueValue) {
-        int red = applyOpacity(redValue);
-        int green = applyOpacity(greenValue);
-        int blue = applyOpacity(blueValue);
-        Log.v(TAG, "getFormatedValue");
-        Log.v(TAG, "Applying opacity of " + oldOpacity + " on ");
-        Log.v(TAG, "value         red [" + redValue + "] green [" + greenValue + "] blue [" + blueValue + "]");
-        Log.v(TAG, "new value are red [" + red + "] green [" + green + "] blue [" + blue + "]");
-        red = adjustToMaxPower(red);
-        green = adjustToMaxPower(green);
-        blue = adjustToMaxPower(blue);
-        Log.v(TAG, "Applying value to max power of " + MAX_OUTPUT);
-        Log.v(TAG, "new value are red [" + red + "] green [" + green + "] blue [" + blue + "]");
-
-        return fillWithLeadingZero(red) + fillWithLeadingZero(green) + fillWithLeadingZero(blue);
-    }
-
-    private int adjustToMaxPower(final int original) {
-        return original * MAX_OUTPUT / 255;
+    private String getFormattedValues(int... values) {
+        StringBuilder sb = new StringBuilder();
+        for (int value : values) {
+            sb.append(fillWithLeadingZero(value));
+        }
+        return sb.toString();
     }
 
     private boolean shouldRefresh(final int red, final int green, final int blue) {
@@ -142,19 +137,13 @@ public class MainOakActivity extends AppCompatActivity implements ColorPicker.On
             || differenceIsWideEnough(blue, oldBlueValue);
     }
 
-
-    private int applyOpacity(int value) {
-        Double valDouble = (double) value * ((double) oldOpacity) / (double) 255;
-        return valDouble.intValue();
-    }
-
     private boolean differenceIsWideEnough(int newValue, int oldValue) {
         int absoluteDifference = Math.abs(newValue - oldValue);
         return absoluteDifference > STEP;
     }
 
-    private String fillWithLeadingZero(int redValue) {
-        return String.format("%04d", redValue);
+    private String fillWithLeadingZero(int valueIn) {
+        return String.format("%03d", valueIn);
     }
 
     /**
@@ -195,11 +184,13 @@ public class MainOakActivity extends AppCompatActivity implements ColorPicker.On
 
     private void retrieveActuallySetColor(OakInfo oakInfo) {
         HttpAsynchTask mOakActualRedValueTask = new HttpAsynchTask(RGB.RED);
-        mOakActualRedValueTask.execute(new GetVariableInfo(oakInfo, "value1"));
+        mOakActualRedValueTask.execute(new GetVariableInfo(oakInfo, "red"));
         HttpAsynchTask mOakActualGreenValueTask = new HttpAsynchTask(RGB.GREEN);
-        mOakActualGreenValueTask.execute(new GetVariableInfo(oakInfo, "value2"));
+        mOakActualGreenValueTask.execute(new GetVariableInfo(oakInfo, "green"));
         HttpAsynchTask mOakActualBlueValueTask = new HttpAsynchTask(RGB.BLUE);
-        mOakActualBlueValueTask.execute(new GetVariableInfo(oakInfo, "value3"));
+        mOakActualBlueValueTask.execute(new GetVariableInfo(oakInfo, "blue"));
+        HttpAsynchTask mOakActualIntensityValueTask = new HttpAsynchTask(RGB.INTENSITY);
+        mOakActualIntensityValueTask.execute(new GetVariableInfo(oakInfo, "inten"));
     }
 
     private class HttpAsynchTask extends AsyncTask<GetVariableInfo, Void, ObjectWithPotentialError<String>> {
@@ -240,19 +231,14 @@ public class MainOakActivity extends AppCompatActivity implements ColorPicker.On
                 if (RGB.BLUE.equals(rgb)) {
                     oldBlueValue = Integer.parseInt(resp.getContent());
                 }
-                if (null != oldRedValue && null != oldGreenValue && null != oldBlueValue) {
-                    int opacity = estimateActualOpacity(oldRedValue, oldGreenValue, oldBlueValue);
-
+                if (RGB.INTENSITY.equals(rgb)) {
+                    oldIntensity = Integer.parseInt(resp.getContent());
+                }
+                if (null != oldRedValue && null != oldGreenValue && null != oldBlueValue && null != oldIntensity) {
                     Log.v(TAG, "setValueRetriever");
-                    Log.v(TAG, "got value      red [" + oldRedValue + "] green [" + oldGreenValue + "] blue [" + oldBlueValue + "]");
-                    Log.v(TAG, "removing opacity of " + opacity);
-                    oldRedValue = removeOpacity(oldRedValue, opacity);
-                    oldGreenValue = removeOpacity(oldGreenValue, opacity);
-                    oldBlueValue = removeOpacity(oldBlueValue, opacity);
-                    Log.v(TAG, "adjusted value red [" + oldRedValue + "] green [" + oldGreenValue + "] blue [" + oldBlueValue + "]");
+                    Log.v(TAG, "got value      red [" + oldRedValue + "] green [" + oldGreenValue + "] blue [" + oldBlueValue + "] intensity [" + oldIntensity + "]");
                     colorPicker.setColor(Color.rgb(oldRedValue, oldGreenValue, oldBlueValue));
-                    opacityBar.setOpacity(opacity);
-                    oldOpacity = opacity;
+                    opacityBar.setOpacity(oldIntensity);
                     showProgress(false);
                 }
                 // finish();
@@ -266,21 +252,6 @@ public class MainOakActivity extends AppCompatActivity implements ColorPicker.On
                 errorDialog.show(getFragmentManager(), "errordialog");
             }
         }
-    }
-    private int removeOpacity(final int colorValue, final int opacity) {
-        return (colorValue * opacity) / MAX_OUTPUT;
-    }
-    private int estimateActualOpacity(final int red, final int green, final int blue) {
-        int maxVal = red;
-        if (green > maxVal) {
-            maxVal = green;
-        }
-        if (blue > maxVal) {
-            maxVal = blue;
-        }
-        int opacity = (maxVal * 255) / MAX_OUTPUT;
-        Log.v(TAG, "estimated that the actual opacity is " + opacity);
-        return opacity;
     }
 
     private class HttpPOSTValueTask extends AsyncTask<SetNewValueInfo, Void, ObjectWithPotentialError<String>> {

@@ -6,16 +6,14 @@ package com.riromain.oak.colorpickeroak2.object;
 public class SetNewValueInfo {
     private final OakInfo oakInfo;
     private final String newValue;
+    private final String serviceId;
 
-    public SetNewValueInfo(String deviceId,
-                           String accessToken,
-                           String newValue) {
-        this(new OakInfo(deviceId, accessToken), newValue);
-    }
     public SetNewValueInfo(OakInfo oakInfo,
-                            String newValue) {
+                            String newValue,
+                           String serviceId) {
         this.oakInfo = oakInfo;
         this.newValue = newValue;
+        this.serviceId = serviceId;
     }
 
     public String getDeviceId() {
@@ -32,5 +30,9 @@ public class SetNewValueInfo {
 
     public OakInfo getOakInfo() {
         return oakInfo;
+    }
+
+    public String getServiceId() {
+        return serviceId;
     }
 }

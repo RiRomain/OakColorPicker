@@ -26,8 +26,7 @@
         </activity>
         <activity
             android:name=".MainOakActivity"
-            android:label="@string/title_activity_main_oak"
-            android:theme="@style/AppTheme.NoActionBar"></activity>
+            android:label="@string/title_activity_main_oak"></activity>
     </application>
 
-</manifest>
+    <!--android:theme="@style/AppTheme.NoActionBar"--></manifest>
