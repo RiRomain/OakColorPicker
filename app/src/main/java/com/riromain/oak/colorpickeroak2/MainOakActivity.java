@@ -22,7 +22,7 @@ import com.riromain.oak.colorpickeroak2.http.result.ObjectWithPotentialError;
 import com.riromain.oak.colorpickeroak2.http.result.ObjectWithPotentialErrorImpl;
 import com.riromain.oak.colorpickeroak2.object.GetVariableInfo;
 import com.riromain.oak.colorpickeroak2.object.OakInfo;
-import com.riromain.oak.colorpickeroak2.object.SetNewValueInfo;
+import com.riromain.oak.colorpickeroak2.object.FunctionWithValueRequest;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -32,10 +32,11 @@ public class MainOakActivity extends AppCompatActivity implements ColorPicker.On
 
     public static final int STEP = 10;
 
-    private enum RGB {
+    private enum RGBW {
         RED,
         GREEN,
         BLUE,
+        WHITE,
         INTENSITY;
 
     }
@@ -44,13 +45,14 @@ public class MainOakActivity extends AppCompatActivity implements ColorPicker.On
     private Integer oldRedValue;
     private Integer oldGreenValue;
     private Integer oldBlueValue;
+    private Integer oldWhiteValue;
     private Integer oldIntensity;
     private ColorPicker colorPicker;
     private OpacityBar opacityBar;
     private OakInfo oakInfo;
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    protected void onCreate(final Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main_oak);
 
@@ -64,18 +66,24 @@ public class MainOakActivity extends AppCompatActivity implements ColorPicker.On
         showProgress(true);
         colorPicker = (ColorPicker) findViewById(R.id.picker);
         opacityBar = (OpacityBar) findViewById(R.id.opacitybar);
+        //TODO add whiteValueBar find step
+
         colorPicker.addOpacityBar(opacityBar);
+        //TODO add whiteValueBar
         colorPicker.setShowOldCenterColor(false);
         oakInfo = new OakInfo(deviceId, accessToken);
         retrieveActuallySetColor(oakInfo);
         opacityBar.setOnOpacityChangedListener(this);
         colorPicker.setOnColorChangedListener(this);
+        //TOTO add onWhiteValueChange listener
 
     }
 
+    //TODO create onWhiteValueChanged function
+
     @Override
-    public void onOpacityChanged(int opacity) {
-        if (null == oldIntensity || null == oldRedValue || null == oldGreenValue || null == oldBlueValue) {
+    public void onOpacityChanged(final int opacity) {
+        if (!allOldValueSet()) {
             //Value not finished to be retrieved yet, do nothing
             //Or, no change detected
             return;
@@ -89,8 +97,8 @@ public class MainOakActivity extends AppCompatActivity implements ColorPicker.On
     }
 
     @Override
-    public void onColorChanged(int color) {
-        if (null == oldRedValue || null == oldGreenValue || null == oldBlueValue || null == oldIntensity) {
+    public void onColorChanged(final int color) {
+        if (!allOldValueSet()) {
             //Value not finished to be retrieved yet, do nothing
             return;
         }
@@ -108,22 +116,37 @@ public class MainOakActivity extends AppCompatActivity implements ColorPicker.On
         }
     }
 
+    private boolean allOldValueSet() {
+        return null != oldRedValue && null != oldGreenValue && null != oldBlueValue
+                && null != oldIntensity && null != oldWhiteValue;
+    }
+
     private void sendValueToBoard() {
-        HttpPOSTValueTask postValueTask = new HttpPOSTValueTask();
-        String formattedValue = getFormattedValues(oldRedValue, oldGreenValue, oldBlueValue);
+        String formattedValue = getFormattedValues(oldRedValue, oldGreenValue, oldBlueValue, oldWhiteValue);
         Log.v(TAG, "sendingValue [" + formattedValue + "] to board");
-        postValueTask.execute(new SetNewValueInfo(oakInfo, formattedValue, "value"));
+        executeFunction(new FunctionWithValueRequest(oakInfo, formattedValue, "value"));
     }
 
     private void sendOpacityToBoard() {
-        HttpPOSTValueTask postValueTask = new HttpPOSTValueTask();
         String formattedValue = getFormattedValues(oldIntensity);
         Log.v(TAG, "sendingIntensity [" + formattedValue + "] to board");
-        postValueTask.execute(new SetNewValueInfo(oakInfo, formattedValue, "intensity"));
+        executeFunction(new FunctionWithValueRequest(oakInfo, formattedValue, "intensity"));
+    }
+
+    private void sendOnOffCommand(final boolean turnOn) {
+        String val = "off";
+        if (turnOn) {
+            val = "on";
+        }
+        executeFunction(new FunctionWithValueRequest(oakInfo, val, "led"));
+    }
+
+    private void executeFunction(final FunctionWithValueRequest info) {
+        new HttpPostValueForFunctionTask().execute(info);
     }
 
     @NonNull
-    private String getFormattedValues(int... values) {
+    private String getFormattedValues(final int... values) {
         StringBuilder sb = new StringBuilder();
         for (int value : values) {
             sb.append(fillWithLeadingZero(value));
@@ -137,12 +160,12 @@ public class MainOakActivity extends AppCompatActivity implements ColorPicker.On
             || differenceIsWideEnough(blue, oldBlueValue);
     }
 
-    private boolean differenceIsWideEnough(int newValue, int oldValue) {
+    private boolean differenceIsWideEnough(final int newValue, final int oldValue) {
         int absoluteDifference = Math.abs(newValue - oldValue);
         return absoluteDifference > STEP;
     }
 
-    private String fillWithLeadingZero(int valueIn) {
+    private String fillWithLeadingZero(final int valueIn) {
         return String.format("%03d", valueIn);
     }
 
@@ -182,26 +205,23 @@ public class MainOakActivity extends AppCompatActivity implements ColorPicker.On
         }
     }
 
-    private void retrieveActuallySetColor(OakInfo oakInfo) {
-        HttpAsynchTask mOakActualRedValueTask = new HttpAsynchTask(RGB.RED);
-        mOakActualRedValueTask.execute(new GetVariableInfo(oakInfo, "red"));
-        HttpAsynchTask mOakActualGreenValueTask = new HttpAsynchTask(RGB.GREEN);
-        mOakActualGreenValueTask.execute(new GetVariableInfo(oakInfo, "green"));
-        HttpAsynchTask mOakActualBlueValueTask = new HttpAsynchTask(RGB.BLUE);
-        mOakActualBlueValueTask.execute(new GetVariableInfo(oakInfo, "blue"));
-        HttpAsynchTask mOakActualIntensityValueTask = new HttpAsynchTask(RGB.INTENSITY);
-        mOakActualIntensityValueTask.execute(new GetVariableInfo(oakInfo, "inten"));
+    private void retrieveActuallySetColor(final OakInfo oakInfo) {
+        new HttpAsynchTask(RGBW.RED).execute(new GetVariableInfo(oakInfo, "red"));
+        new HttpAsynchTask(RGBW.GREEN).execute(new GetVariableInfo(oakInfo, "green"));
+        new HttpAsynchTask(RGBW.BLUE).execute(new GetVariableInfo(oakInfo, "blue"));
+        new HttpAsynchTask(RGBW.WHITE).execute(new GetVariableInfo(oakInfo, "white"));
+        new HttpAsynchTask(RGBW.INTENSITY).execute(new GetVariableInfo(oakInfo, "inten"));
     }
 
     private class HttpAsynchTask extends AsyncTask<GetVariableInfo, Void, ObjectWithPotentialError<String>> {
 
 
-        private RGB rgb;
-        public HttpAsynchTask(final RGB rgb) {
-            this.rgb = rgb;
+        private RGBW RGBW;
+        public HttpAsynchTask(final RGBW RGBW) {
+            this.RGBW = RGBW;
         }
         @Override
-        protected ObjectWithPotentialError<String> doInBackground(GetVariableInfo... params) {
+        protected ObjectWithPotentialError<String> doInBackground(final GetVariableInfo... params) {
             ObjectWithPotentialError<String> resp = HttpGETEntityAsString.getVariable(params[0]);
             if (resp.getError() != null || resp.getErrorCode() != null) {
                 return resp;
@@ -222,23 +242,27 @@ public class MainOakActivity extends AppCompatActivity implements ColorPicker.On
         protected void onPostExecute(final ObjectWithPotentialError<String> resp) {
 
             if (resp.getErrorCode() == null && resp.getError() == null && null != resp.getContent()) {
-                if (RGB.RED.equals(rgb)) {
+                if (RGBW.RED.equals(RGBW)) {
                     oldRedValue = Integer.parseInt(resp.getContent());
                 }
-                if (RGB.GREEN.equals(rgb)) {
+                if (RGBW.GREEN.equals(RGBW)) {
                     oldGreenValue = Integer.parseInt(resp.getContent());
                 }
-                if (RGB.BLUE.equals(rgb)) {
+                if (RGBW.BLUE.equals(RGBW)) {
                     oldBlueValue = Integer.parseInt(resp.getContent());
                 }
-                if (RGB.INTENSITY.equals(rgb)) {
+                if (RGBW.WHITE.equals(RGBW)) {
+                    oldWhiteValue = Integer.parseInt(resp.getContent());
+                }
+                if (RGBW.INTENSITY.equals(RGBW)) {
                     oldIntensity = Integer.parseInt(resp.getContent());
                 }
-                if (null != oldRedValue && null != oldGreenValue && null != oldBlueValue && null != oldIntensity) {
+                if (allOldValueSet()) {
                     Log.v(TAG, "setValueRetriever");
-                    Log.v(TAG, "got value      red [" + oldRedValue + "] green [" + oldGreenValue + "] blue [" + oldBlueValue + "] intensity [" + oldIntensity + "]");
+                    Log.v(TAG, "got value red [" + oldRedValue + "] green [" + oldGreenValue + "] blue [" + oldBlueValue + "] white [" + oldWhiteValue + "] intensity [" + oldIntensity + "]");
                     colorPicker.setColor(Color.rgb(oldRedValue, oldGreenValue, oldBlueValue));
                     opacityBar.setOpacity(oldIntensity);
+                    //TODO setter for white value bar
                     showProgress(false);
                 }
                 // finish();
@@ -254,10 +278,10 @@ public class MainOakActivity extends AppCompatActivity implements ColorPicker.On
         }
     }
 
-    private class HttpPOSTValueTask extends AsyncTask<SetNewValueInfo, Void, ObjectWithPotentialError<String>> {
+    private class HttpPostValueForFunctionTask extends AsyncTask<FunctionWithValueRequest, Void, ObjectWithPotentialError<String>> {
 
         @Override
-        protected ObjectWithPotentialError<String> doInBackground(SetNewValueInfo... params) {
+        protected ObjectWithPotentialError<String> doInBackground(final FunctionWithValueRequest... params) {
             return HttpPostNewValue.execute(params[0]);
         }
 

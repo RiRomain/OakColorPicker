@@ -26,7 +26,7 @@ public class HttpGETEntityAsString {
     private HttpGETEntityAsString() {
     }
 
-    public static ObjectWithPotentialError<String> getName(OakInfo oakInfo) {
+    public static ObjectWithPotentialError<String> getName(final OakInfo oakInfo) {
 
         URL myURL = null;
         try {
@@ -37,7 +37,7 @@ public class HttpGETEntityAsString {
         }
         return processPost(myURL);
     }
-    public static ObjectWithPotentialError<String> getVariable(GetVariableInfo getVariableInfo) {
+    public static ObjectWithPotentialError<String> getVariable(final GetVariableInfo getVariableInfo) {
         URL myURL = null;
         try {
             myURL = new URL(createGetVariableUrl(getVariableInfo));
@@ -49,7 +49,7 @@ public class HttpGETEntityAsString {
     }
 
     @NonNull
-    private static ObjectWithPotentialError<String> processPost(URL myURL) {
+    private static ObjectWithPotentialError<String> processPost(final URL myURL) {
         try {
           //  Proxy proxy = new Proxy(Proxy.Type.HTTP, new InetSocketAddress("192.168.100.4", 8080));
             URLConnection connection = myURL.openConnection();//proxy);
@@ -72,14 +72,14 @@ public class HttpGETEntityAsString {
     }
 
     @NonNull
-    private static String createGetVariableUrl(GetVariableInfo getVariableInfo) {
+    private static String createGetVariableUrl(final GetVariableInfo getVariableInfo) {
         return "https://api.particle.io/v1/devices/" + getVariableInfo.getDeviceId()
                 + "/" + getVariableInfo.getVariableId() + "/?access_token="
                 + getVariableInfo.getAccessToken();
     }
 
 
-    private static String convertInputStreamToString(InputStream inputStream) throws IOException{
+    private static String convertInputStreamToString(final InputStream inputStream) throws IOException{
         BufferedReader bufferedReader = new BufferedReader( new InputStreamReader(inputStream));
         String line = "";
         String result = "";

@@ -7,8 +7,8 @@ public class GetVariableInfo {
     private final OakInfo oakInfo;
     private final String variableId;
 
-    public GetVariableInfo(OakInfo oakInfo,
-                           String variableId) {
+    public GetVariableInfo(final OakInfo oakInfo,
+                           final String variableId) {
         this.oakInfo = oakInfo;
         this.variableId = variableId;
     }

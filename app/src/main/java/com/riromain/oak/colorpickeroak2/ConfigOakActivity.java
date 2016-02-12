@@ -69,7 +69,7 @@ public class ConfigOakActivity extends AppCompatActivity implements LoaderCallba
     private View mLoginFormView;
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    protected void onCreate(final Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_config_oak);
         SharedPreferences pref = getSharedPreferences(PrefConst.PREFS_NAME, 0);
@@ -146,7 +146,7 @@ public class ConfigOakActivity extends AppCompatActivity implements LoaderCallba
      * Callback received when a permissions request has been completed.
      */
     @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
+    public void onRequestPermissionsResult(final int requestCode, @NonNull final String[] permissions,
                                            @NonNull int[] grantResults) {
         if (requestCode == REQUEST_READ_CONTACTS) {
             if (grantResults.length == 1 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
@@ -208,7 +208,7 @@ public class ConfigOakActivity extends AppCompatActivity implements LoaderCallba
         }
     }
 
-    private void saveCredentialInAccountManager(String deviceId, String accessToken) {
+    private void saveCredentialInAccountManager(final String deviceId, final String accessToken) {
         SharedPreferences sharedPreferences = getSharedPreferences(PrefConst.PREFS_NAME, 0);
         SharedPreferences.Editor editor = sharedPreferences.edit();
         editor.putString(PrefConst.DEVICE_ID_KEY, deviceId);
@@ -218,7 +218,7 @@ public class ConfigOakActivity extends AppCompatActivity implements LoaderCallba
 
     private class HttpAsynchTask extends AsyncTask<OakInfo, Void, ObjectWithPotentialError<String>> {
         @Override
-       protected ObjectWithPotentialError<String> doInBackground(OakInfo... params) {
+       protected ObjectWithPotentialError<String> doInBackground(final OakInfo... params) {
            ObjectWithPotentialError<String> resp = HttpGETEntityAsString.getName(params[0]);
            if (resp.getError() != null || resp.getErrorCode() != null) {
                return resp;
@@ -261,11 +261,11 @@ public class ConfigOakActivity extends AppCompatActivity implements LoaderCallba
 
    }
 
-    private boolean isDeviceIDValid(String deviceID) {
+    private boolean isDeviceIDValid(final String deviceID) {
         return deviceID.length() > 5;
     }
 
-    private boolean isAccessTokenValid(String accessToken) {
+    private boolean isAccessTokenValid(final String accessToken) {
         //TODO: Replace this with your own logic
         return accessToken.length() > 4;
     }
@@ -307,7 +307,7 @@ public class ConfigOakActivity extends AppCompatActivity implements LoaderCallba
     }
 
     @Override
-    public Loader<Cursor> onCreateLoader(int i, Bundle bundle) {
+    public Loader<Cursor> onCreateLoader(final int i, final Bundle bundle) {
         return new CursorLoader(this,
                 // Retrieve data rows for the device user's 'profile' contact.
                 Uri.withAppendedPath(ContactsContract.Profile.CONTENT_URI,
@@ -324,7 +324,7 @@ public class ConfigOakActivity extends AppCompatActivity implements LoaderCallba
     }
 
     @Override
-    public void onLoadFinished(Loader<Cursor> cursorLoader, Cursor cursor) {
+    public void onLoadFinished(final Loader<Cursor> cursorLoader, final Cursor cursor) {
         List<String> emails = new ArrayList<>();
         cursor.moveToFirst();
         while (!cursor.isAfterLast()) {
@@ -336,11 +336,11 @@ public class ConfigOakActivity extends AppCompatActivity implements LoaderCallba
     }
 
     @Override
-    public void onLoaderReset(Loader<Cursor> cursorLoader) {
+    public void onLoaderReset(final Loader<Cursor> cursorLoader) {
 
     }
 
-    private void addEmailsToAutoComplete(List<String> emailAddressCollection) {
+    private void addEmailsToAutoComplete(final List<String> emailAddressCollection) {
         //Create adapter to tell the AutoCompleteTextView what to show in its dropdown list.
         ArrayAdapter<String> adapter =
                 new ArrayAdapter<>(ConfigOakActivity.this,

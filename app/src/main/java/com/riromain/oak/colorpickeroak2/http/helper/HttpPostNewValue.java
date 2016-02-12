@@ -2,7 +2,7 @@ package com.riromain.oak.colorpickeroak2.http.helper;
 
 import com.riromain.oak.colorpickeroak2.http.result.ObjectWithPotentialError;
 import com.riromain.oak.colorpickeroak2.http.result.ObjectWithPotentialErrorImpl;
-import com.riromain.oak.colorpickeroak2.object.SetNewValueInfo;
+import com.riromain.oak.colorpickeroak2.object.FunctionWithValueRequest;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -12,8 +12,6 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.net.HttpURLConnection;
-import java.net.InetSocketAddress;
-import java.net.Proxy;
 import java.net.URL;
 
 /**
@@ -23,7 +21,7 @@ public class HttpPostNewValue {
     private HttpPostNewValue() {
     }
 
-    public static ObjectWithPotentialError<String> execute(final SetNewValueInfo info) {
+    public static ObjectWithPotentialError<String> execute(final FunctionWithValueRequest info) {
         URL url = null;
         try {
             url = new URL("https://api.particle.io/v1/devices/" + info.getDeviceId() + "/" + info.getServiceId() + "/?access_token=" + info.getAccessToken());
@@ -53,12 +51,13 @@ public class HttpPostNewValue {
         }
     }
 
-    private static String convertInputStreamToString(InputStream inputStream) throws IOException{
+    private static String convertInputStreamToString(final InputStream inputStream) throws IOException{
         BufferedReader bufferedReader = new BufferedReader( new InputStreamReader(inputStream));
         String line = "";
         String result = "";
-        while((line = bufferedReader.readLine()) != null)
+        while((line = bufferedReader.readLine()) != null) {
             result += line;
+        }
 
         inputStream.close();
         return result;

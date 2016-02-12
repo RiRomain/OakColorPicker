@@ -16,7 +16,7 @@ public class ErrorDialog extends DialogFragment {
         super();
     }
     @Override
-    public Dialog onCreateDialog(Bundle savedInstanceState) {
+    public Dialog onCreateDialog(final Bundle savedInstanceState) {
         AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
         String errorInfo = getArguments().getString(ERROR_INFO);
         if (null == errorInfo) {

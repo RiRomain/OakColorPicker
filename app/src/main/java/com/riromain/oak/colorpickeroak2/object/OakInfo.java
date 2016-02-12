@@ -7,8 +7,8 @@ public class OakInfo {
     private final String deviceId;
     private final String accessToken;
 
-    public OakInfo(String deviceId,
-                    String accessToken) {
+    public OakInfo(final String deviceId,
+                   final String accessToken) {
         this.deviceId = deviceId;
         this.accessToken = accessToken;
     }
