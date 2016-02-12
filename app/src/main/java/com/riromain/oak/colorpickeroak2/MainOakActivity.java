@@ -12,6 +12,7 @@ import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
+import android.widget.Button;
 import android.widget.LinearLayout;
 
 import com.larswerkman.holocolorpicker.ColorPicker;
@@ -31,6 +32,19 @@ public class MainOakActivity extends AppCompatActivity implements ColorPicker.On
     private static final String TAG = "MainOakActivity";
 
     public static final int STEP = 10;
+    private View mRGBFormView;
+    private LinearLayout mProgressLayout;
+    private Integer oldRedValue;
+    private Integer oldGreenValue;
+    private Integer oldBlueValue;
+    private Integer oldWhiteValue;
+    private Integer oldIntensity;
+    private ColorPicker colorPicker;
+    private OpacityBar rgbIntensityBar;
+    private OpacityBar whiteIntensityBar;
+    private OakInfo oakInfo;
+    private Button onButton;
+    private Button offButton;
 
     private enum RGBW {
         RED,
@@ -40,16 +54,6 @@ public class MainOakActivity extends AppCompatActivity implements ColorPicker.On
         INTENSITY;
 
     }
-    private View mRGBFormView;
-    private LinearLayout mProgressLayout;
-    private Integer oldRedValue;
-    private Integer oldGreenValue;
-    private Integer oldBlueValue;
-    private Integer oldWhiteValue;
-    private Integer oldIntensity;
-    private ColorPicker colorPicker;
-    private OpacityBar opacityBar;
-    private OakInfo oakInfo;
 
     @Override
     protected void onCreate(final Bundle savedInstanceState) {
@@ -64,22 +68,53 @@ public class MainOakActivity extends AppCompatActivity implements ColorPicker.On
 
         mProgressLayout = (LinearLayout)findViewById(R.id.progress_bar_layout);
         showProgress(true);
-        colorPicker = (ColorPicker) findViewById(R.id.picker);
-        opacityBar = (OpacityBar) findViewById(R.id.opacitybar);
-        //TODO add whiteValueBar find step
+        colorPicker = (ColorPicker) findViewById(R.id.rgbcolorpicker);
+        rgbIntensityBar = (OpacityBar) findViewById(R.id.rgbintensitybar);
+        colorPicker.addOpacityBar(rgbIntensityBar);
+        whiteIntensityBar = (OpacityBar) findViewById(R.id.whiteintensitybar);
 
-        colorPicker.addOpacityBar(opacityBar);
-        //TODO add whiteValueBar
+        onButton = (Button) findViewById(R.id.on_button);
+        offButton = (Button) findViewById(R.id.off_button);
+        onButton.setOnClickListener(new OnOffOnClickListener("on"));
+        offButton.setOnClickListener(new OnOffOnClickListener("off"));
+
         colorPicker.setShowOldCenterColor(false);
         oakInfo = new OakInfo(deviceId, accessToken);
         retrieveActuallySetColor(oakInfo);
-        opacityBar.setOnOpacityChangedListener(this);
+        rgbIntensityBar.setOnOpacityChangedListener(this);
+        whiteIntensityBar.setOnOpacityChangedListener(new WhiteIntensityOnChangedListener());
         colorPicker.setOnColorChangedListener(this);
-        //TOTO add onWhiteValueChange listener
-
     }
 
-    //TODO create onWhiteValueChanged function
+    private class OnOffOnClickListener implements View.OnClickListener {
+        private String arg;
+
+        public OnOffOnClickListener(final String arg) {
+            this.arg = arg;
+        }
+
+        @Override
+        public void onClick(View v) {
+            executeFunction(new FunctionWithValueRequest(oakInfo, arg, "led"));
+        }
+    }
+
+    private class WhiteIntensityOnChangedListener implements OpacityBar.OnOpacityChangedListener {
+        @Override
+        public void onOpacityChanged(int whiteValue) {
+            if (!allOldValueSet()) {
+                //Value not finished to be retrieved yet, do nothing
+                //Or, no change detected
+                return;
+            }
+            if (differenceIsWideEnough(whiteValue, oldWhiteValue) || 0 == whiteValue || 255 == whiteValue) {
+                Log.v(TAG, "onSaturationChanged");
+                Log.v(TAG, "setting new white value [" + whiteValue + " - old value was" + oldWhiteValue + "]");
+                oldWhiteValue = whiteValue;
+                sendValueToBoard();
+            }
+        }
+    }
 
     @Override
     public void onOpacityChanged(final int opacity) {
@@ -131,14 +166,6 @@ public class MainOakActivity extends AppCompatActivity implements ColorPicker.On
         String formattedValue = getFormattedValues(oldIntensity);
         Log.v(TAG, "sendingIntensity [" + formattedValue + "] to board");
         executeFunction(new FunctionWithValueRequest(oakInfo, formattedValue, "intensity"));
-    }
-
-    private void sendOnOffCommand(final boolean turnOn) {
-        String val = "off";
-        if (turnOn) {
-            val = "on";
-        }
-        executeFunction(new FunctionWithValueRequest(oakInfo, val, "led"));
     }
 
     private void executeFunction(final FunctionWithValueRequest info) {
@@ -261,8 +288,8 @@ public class MainOakActivity extends AppCompatActivity implements ColorPicker.On
                     Log.v(TAG, "setValueRetriever");
                     Log.v(TAG, "got value red [" + oldRedValue + "] green [" + oldGreenValue + "] blue [" + oldBlueValue + "] white [" + oldWhiteValue + "] intensity [" + oldIntensity + "]");
                     colorPicker.setColor(Color.rgb(oldRedValue, oldGreenValue, oldBlueValue));
-                    opacityBar.setOpacity(oldIntensity);
-                    //TODO setter for white value bar
+                    rgbIntensityBar.setOpacity(oldIntensity);
+                    whiteIntensityBar.setOpacity(oldWhiteValue);
                     showProgress(false);
                 }
                 // finish();

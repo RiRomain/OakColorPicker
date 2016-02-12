@@ -21,4 +21,6 @@
     <string name="loading_previous_value">Retrieving previous set value</string>
     <string name="boutton_on">ON</string>
     <string name="button_off">OFF</string>
+    <string name="rgb_intensity">RGB Intensity</string>
+    <string name="white_intensity">White Intensity</string>
 </resources>
