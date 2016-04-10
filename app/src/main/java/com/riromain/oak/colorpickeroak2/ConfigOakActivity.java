@@ -95,7 +95,7 @@ public class ConfigOakActivity extends AppCompatActivity implements LoaderCallba
             }
         });
 
-        Button mEmailSignInButton = (Button) findViewById(R.id.email_sign_in_button);
+        Button mEmailSignInButton = (Button) findViewById(R.id.sign_in_by_devide_button);
         mEmailSignInButton.setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -189,7 +189,7 @@ public class ConfigOakActivity extends AppCompatActivity implements LoaderCallba
             focusView = mDeviceIdView;
             cancel = true;
         } else if (!isDeviceIDValid(deviceId)) {
-            mDeviceIdView.setError(getString(R.string.error_invalid_email));
+            mDeviceIdView.setError(getString(R.string.error_invalid_device_id));
             focusView = mDeviceIdView;
             cancel = true;
         }

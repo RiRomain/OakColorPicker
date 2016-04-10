@@ -3,14 +3,20 @@
 
     <!-- Strings related to login -->
     <string name="ok">OK</string>
-    <string name="prompt_email">DeviceID</string>
-    <string name="prompt_password">Access token</string>
-    <string name="action_sign_in">Connect OAK device</string>
+    <string name="prompt_device_id">DeviceID</string>
+    <string name="prompt_access_token">Access token</string>
+    <string name="prompt_email">Email address</string>
+    <string name="prompt_password">Password</string>
+    <string name="action_connect_to_oak">Connect OAK device</string>
+    <string name="action_list_oak_device">List OAK device</string>
     <string name="action_sign_in_short">Connect OAK</string>
-    <string name="error_invalid_email">This device ID is invalid</string>
+    <string name="error_invalid_device_id">This device ID is invalid</string>
+    <string name="error_invalid_email">This email is invalid</string>
     <string name="error_fetch_actual_value">Error while fetching actual set value</string>
     <string name="error_set_new_value">Error while setting new value</string>
     <string name="error_fetch_name">Error while fetching your device name</string>
+    <string name="error_login_particle">Error while trying to connect to your Particle account</string>
+    <string name="error_fetching_device_particle">Error while trying to get your Particle device</string>
     <string name="error_invalid_password">This access token is too short</string>
     <string name="error_incorrect_password">This access token is incorrect</string>
     <string name="error_field_required">This field is required</string>
@@ -18,6 +24,8 @@
         completions."
     </string>
     <string name="title_activity_main_oak">Please pick the wished value</string>
+    <string name="title_device_selection">Please select the device you\'d like to use</string>
+    <string name="title_oak_login">Please login to your Particle account</string>
     <string name="loading_previous_value">Retrieving previous set value</string>
     <string name="boutton_on">ON</string>
     <string name="button_off">OFF</string>
