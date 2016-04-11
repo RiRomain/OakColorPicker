@@ -3,11 +3,8 @@ package com.riromain.oak.colorpickeroak2;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.annotation.TargetApi;
-import android.app.LoaderManager;
 import android.content.Intent;
-import android.content.Loader;
 import android.content.SharedPreferences;
-import android.database.Cursor;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
@@ -20,8 +17,6 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 
-import com.riromain.oak.colorpickeroak2.object.OakAccountInfo;
-
 import io.particle.android.sdk.cloud.ParticleCloudException;
 import io.particle.android.sdk.cloud.ParticleCloudSDK;
 
@@ -33,7 +28,7 @@ public class OakLogin extends AppCompatActivity {
     /**
      * Keep track of oak login task
      */
-    private HttpAsynchTask mOakLoginTask = null;
+    private OakLoginTask mOakLoginTask = null;
 
     private EditText mEmailAddressView;
     private EditText mPasswordView;
@@ -45,17 +40,27 @@ public class OakLogin extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login_oak);
         SharedPreferences pref = getSharedPreferences(PrefConst.PREFS_NAME, 0);
-        //Set up the login form
-        mEmailAddressView = (EditText) findViewById(R.id.emailOakAccount);
-        mEmailAddressView.setText(pref.getString(PrefConst.ACCOUNT_EMAIL_KEY, ""));
 
+        //Initialize the different variable
+        mEmailAddressView = (EditText) findViewById(R.id.emailOakAccount);
+        mEmailLoginFormView = findViewById(R.id.email_login_form);
+        mEmailLoginProgressView = findViewById(R.id.email_login_progress);
         mPasswordView = (EditText) findViewById(R.id.passwordOakAccount);
+
+        //Initialize cloud API and connect directly if credential are available
+        ParticleCloudSDK.init(this);
+        if (pref.contains(PrefConst.ACCOUNT_EMAIL_KEY) && pref.contains(PrefConst.ACCOUNT_PASSWORD_KEY)) {
+            executeLogin(pref.getString(PrefConst.ACCOUNT_EMAIL_KEY, ""), pref.getString(PrefConst.ACCOUNT_PASSWORD_KEY, ""));
+        }
+
+        //Set up the login form with available credential
+        mEmailAddressView.setText(pref.getString(PrefConst.ACCOUNT_EMAIL_KEY, ""));
         mPasswordView.setText(pref.getString(PrefConst.ACCOUNT_PASSWORD_KEY, ""));
         mPasswordView.setOnEditorActionListener(new TextView.OnEditorActionListener() {
             @Override
             public boolean onEditorAction(TextView v, int id, KeyEvent event) {
                 if (id == R.id.loginOakAccount || id == EditorInfo.IME_NULL) {
-                    attemptLogin();
+                    validateCredentialAndAttemptLogin();
                     return true;
                 }
                 return false;
@@ -65,15 +70,9 @@ public class OakLogin extends AppCompatActivity {
         mEmailSignInButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                attemptLogin();
+                validateCredentialAndAttemptLogin();
             }
         });
-        mEmailLoginFormView = findViewById(R.id.email_login_form);
-        mEmailLoginProgressView = findViewById(R.id.email_login_progress);
-        ParticleCloudSDK.init(this);
-        if (pref.contains(PrefConst.ACCOUNT_EMAIL_KEY) && pref.contains(PrefConst.ACCOUNT_PASSWORD_KEY)) {
-            attemptLogin();
-        }
     }
 
     private void startDeviceSelectionActivity() {
@@ -84,7 +83,7 @@ public class OakLogin extends AppCompatActivity {
      * If there are form errors (invalid email, missing fields, etc.), the
      * errors are presented and no actual login attempt is made.
      */
-    private void attemptLogin() {
+    private void validateCredentialAndAttemptLogin() {
         if (mOakLoginTask != null) {
             return;
         }
@@ -125,11 +124,15 @@ public class OakLogin extends AppCompatActivity {
         } else {
             // Show progress spinner, and kick off a background task to perform
             // login attempt.
-            showProgress(true);
             saveCredentialInAccountManager(email, password);
-            mOakLoginTask = new HttpAsynchTask();
-            mOakLoginTask.execute(new OakAccountInfo(email, password));
+            executeLogin(email, password);
         }
+    }
+
+    private void executeLogin(final String email, final String password) {
+        showProgress(true);
+        mOakLoginTask = new OakLoginTask(email, password);
+        mOakLoginTask.execute();
     }
 
     private void saveCredentialInAccountManager(final String email, final String password) {
@@ -144,11 +147,20 @@ public class OakLogin extends AppCompatActivity {
         return email.length() > 5 && email.contains("@");
     }
 
-    private class HttpAsynchTask extends AsyncTask<OakAccountInfo, Void, ParticleCloudException> {
+    private class OakLoginTask extends AsyncTask<Void, Void, ParticleCloudException> {
+        private final String emailAddress;
+        private final String password;
+
+        private OakLoginTask(final String emailAddress, final String password) {
+            this.emailAddress = emailAddress;
+            this.password = password;
+        }
+
         @Override
-        protected ParticleCloudException doInBackground(final OakAccountInfo... params) {
+        protected ParticleCloudException doInBackground(final Void... params) {
             try {
-                ParticleCloudSDK.getCloud().logIn(params[0].getEmail(), params[0].getPassword());
+                //TODO check if call with Void should be defined as stated here.
+                ParticleCloudSDK.getCloud().logIn(emailAddress, password);
                 return null;
             } catch (ParticleCloudException e) {
                 e.printStackTrace();

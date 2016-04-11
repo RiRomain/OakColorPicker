@@ -1,26 +1,23 @@
 package com.riromain.oak.colorpickeroak2;
 
 import android.app.ListActivity;
-import android.content.Context;
+import android.content.DialogInterface;
+import android.content.Intent;
 import android.content.SharedPreferences;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.LayoutInflater;
 import android.view.View;
-import android.view.ViewGroup;
-import android.widget.ArrayAdapter;
 import android.widget.ListView;
-import android.widget.TextView;
 import android.widget.Toast;
 
-import com.riromain.oak.colorpickeroak2.object.OakAccountInfo;
+import com.riromain.oak.colorpickeroak2.http.asynctask.GetDeviceList;
+import com.riromain.oak.colorpickeroak2.object.adapter.ParticleDeviceAdapter;
 
+import java.text.DateFormat;
 import java.util.ArrayList;
-import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
-import io.particle.android.sdk.cloud.ParticleCloudException;
-import io.particle.android.sdk.cloud.ParticleCloudSDK;
 import io.particle.android.sdk.cloud.ParticleDevice;
 
 /**
@@ -29,21 +26,18 @@ import io.particle.android.sdk.cloud.ParticleDevice;
 public class DeviceSelectionActivity extends ListActivity {
 
     private static final String TAG = "DeviceSelectionActivity";
-    private ListView mDeviceEntryListView;
 
-    private HttpAsynchTask mDeviceGetTask = null;
-    private MyAdapter myAdapter;
+    private ParticleDeviceAdapter myAdapter;
 
     @Override
     protected void onCreate(final Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.acitivity_device_selection);
-        mDeviceEntryListView = (ListView) findViewById(android.R.id.list);
         SharedPreferences pref = getSharedPreferences(PrefConst.PREFS_NAME, 0);
-        myAdapter = new MyAdapter(this, new ArrayList<ParticleDevice>());
+        myAdapter = new ParticleDeviceAdapter(this, new ArrayList<ParticleDevice>());
         if (pref.contains(PrefConst.ACCOUNT_EMAIL_KEY) && pref.contains(PrefConst.ACCOUNT_PASSWORD_KEY)) {
-            mDeviceGetTask = new HttpAsynchTask(myAdapter);
-            mDeviceGetTask.execute(new OakAccountInfo(pref.getString(PrefConst.ACCOUNT_EMAIL_KEY, ""), pref.getString(PrefConst.ACCOUNT_PASSWORD_KEY, "")));
+            GetDeviceList mDeviceGetTask = new GetDeviceList(myAdapter, getFragmentManager(), getApplicationContext());
+            mDeviceGetTask.execute();
         } else {
             String error = "Device list cannot be called before giving credential!";
             ErrorDialog errorDialog = new ErrorDialog();
@@ -51,124 +45,58 @@ public class DeviceSelectionActivity extends ListActivity {
             args.putString(ErrorDialog.ERROR_INFO, error);
             errorDialog.setArguments(args);
             errorDialog.show(getFragmentManager(), "errordialog");
+            errorDialog.onDismiss(new ReturnToLoginInterface(this));
         }
+        ListView mDeviceEntryListView = (ListView) findViewById(android.R.id.list);
         mDeviceEntryListView.setAdapter(myAdapter);
     }
 
     @Override
     protected void onListItemClick(ListView l, View v, int position, long id) {
-        ParticleDevice item = myAdapter.getItem(position);
-        Toast.makeText(this, item.getName() + " selected", Toast.LENGTH_LONG).show();
+        ParticleDevice device = myAdapter.getItem(position);
+      //  Toast.makeText(this, device.getName() + " selected", Toast.LENGTH_LONG).show();
+        if (!device.isConnected()) {
+            Toast.makeText(this, "Selected device is not connected - last connection: " + DateFormat.getDateTimeInstance().format(device.getLastHeard())
+                    + ". Please select another device or check that device is powered on and connected to internet.",
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
+        Set<String> functions = device.getFunctions();
+        if (functions.isEmpty()) {
+            Toast.makeText(this, "Selected device does not support require function [led], [value] and [intensity]",
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
+        Map<String, ParticleDevice.VariableType> variables = device.getVariables();
+        if (variables.isEmpty()) {
+            Toast.makeText(this, "Selected device does not support require variable [red], [green], [blue], [white] and [inten]",
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
+        Log.v(TAG, "device support Variables: " + variables.toString());
+        Log.v(TAG, "device support function: " + functions.toString());
+        SharedPreferences sharedPreferences = getSharedPreferences(PrefConst.PREFS_NAME, 0);
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+        editor.putString(PrefConst.ACTIVE_DEVICE_ID_KEY, device.getID());
+        editor.apply();
+        startActivity(new Intent(this, MainOakActivity.class));
     }
 
-    private class DeviceListResp {
-        private ParticleCloudException e;
-        private List<ParticleDevice> deviceList;
-
-        private DeviceListResp(ParticleCloudException e, List<ParticleDevice> deviceList) {
-            this.e = e;
-            this.deviceList = deviceList;
+    private class ReturnToLoginInterface implements DialogInterface {
+        private final DeviceSelectionActivity deviceSelectionActivity;
+        public ReturnToLoginInterface(final DeviceSelectionActivity deviceSelectionActivity) {
+            this.deviceSelectionActivity = deviceSelectionActivity;
         }
-
-        public ParticleCloudException getException() {
-            return e;
-        }
-
-        public List<ParticleDevice> getDeviceList() {
-            return deviceList;
-        }
-    }
-    private class HttpAsynchTask extends AsyncTask<OakAccountInfo, Void, DeviceListResp> {
-        private final MyAdapter myAdapter;
-
-        private HttpAsynchTask(MyAdapter myAdapter) {
-            this.myAdapter = myAdapter;
-        }
-
         @Override
-        protected DeviceListResp doInBackground(final OakAccountInfo... params) {
-            try {
-                Log.v(TAG, "getDeviceList.doInBackground");
-                Log.v(TAG, "started");
-                return new DeviceListResp(null, ParticleCloudSDK.getCloud().getDevices());
-            } catch (ParticleCloudException e) {
-                Log.v(TAG, "getDeviceList.doInBackground");
-                Log.v(TAG, "catch exception");
-                e.printStackTrace();
-                return new DeviceListResp(e, null);
-            }
+        public void cancel() {
+            startOakLoginActivity();
         }
-
         @Override
-        protected void onPostExecute(final DeviceListResp resp) {
-            //  mAuthTask = null;
-            mDeviceGetTask = null;
-            //showProgress(false);
-
-            Log.v(TAG, "getDeviceList.onPostExecute");
-            ParticleCloudException e = resp.getException();
-            List<ParticleDevice> deviceList = resp.getDeviceList();
-            if (null == e && null != deviceList) {
-                Log.v(TAG, "UpdatingEntries - got " + deviceList.size() + " devices");
-                myAdapter.upDateEntries(deviceList);
-            } else if (null == deviceList) {
-                Log.v(TAG, "UpdatingEntries - got an empty device list");
-                String error = getText(R.string.error_fetching_device_particle) + " - Got an empty device list";
-                ErrorDialog errorDialog = new ErrorDialog();
-                Bundle args = new Bundle(1);
-                args.putString(ErrorDialog.ERROR_INFO, error);
-                errorDialog.setArguments(args);
-                errorDialog.show(getFragmentManager(), "errordialog");
-            } else {
-                Log.v(TAG, "UpdatingEntries - error");
-                String error = getText(R.string.error_fetching_device_particle) + " - Error code: " + e.getBestMessage() + " - " + e.getServerErrorMsg();
-                ErrorDialog errorDialog = new ErrorDialog();
-                Bundle args = new Bundle(1);
-                args.putString(ErrorDialog.ERROR_INFO, error);
-                errorDialog.setArguments(args);
-                errorDialog.show(getFragmentManager(), "errordialog");
-            }
+        public void dismiss() {
+            startOakLoginActivity();
         }
-    }
-
-    private class MyAdapter extends ArrayAdapter<ParticleDevice> {
-
-        private final Context context;
-        private List<ParticleDevice> devicesList;
-
-        public MyAdapter(final Context context,
-                         final List<ParticleDevice> objects) {
-            super(context, -1, objects);
-            this.context = context;
-            this.devicesList = objects;
-        }
-
-        @Override
-        public View getView(int position, View convertView, ViewGroup parent) {
-            LayoutInflater inflater = (LayoutInflater) context
-                    .getSystemService(Context.LAYOUT_INFLATER_SERVICE);
-            View rowView = inflater.inflate(R.layout.device_entry_layout, parent, false);
-            String name = devicesList.get(position).getName();
-            Log.v(TAG, "MyAdapter - set device name " + name);
-            TextView deviceNameView = (TextView) rowView.findViewById(R.id.device_name);
-            deviceNameView.setText(name);
-            String deviceID = devicesList.get(position).getID();
-            Log.v(TAG, "MyAdapter - set device ID " + deviceID);
-            TextView deviceIdView = (TextView) rowView.findViewById(R.id.device_id);
-            deviceIdView.setText(deviceID);
-            return rowView;
-        }
-
-        public void upDateEntries(List<ParticleDevice> entries) {
-            Log.v(TAG, "MyAdapter.upDateEntries");
-            devicesList.clear();
-            if (null != entries) {
-                Log.v(TAG, "Adding the " + entries.size() + " new entries");
-                devicesList.addAll(entries);
-            } else {
-                Log.v(TAG, "Got 0 entries");
-            }
-            this.notifyDataSetChanged();
+        private void startOakLoginActivity() {
+            startActivity(new Intent(deviceSelectionActivity, OakLogin.class));
         }
     }
 }

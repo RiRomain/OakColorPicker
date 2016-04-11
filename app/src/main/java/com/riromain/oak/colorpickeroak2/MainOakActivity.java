@@ -17,16 +17,16 @@ import android.widget.LinearLayout;
 
 import com.larswerkman.holocolorpicker.ColorPicker;
 import com.larswerkman.holocolorpicker.OpacityBar;
-import com.riromain.oak.colorpickeroak2.http.helper.HttpGETEntityAsString;
-import com.riromain.oak.colorpickeroak2.http.helper.HttpPostNewValue;
-import com.riromain.oak.colorpickeroak2.http.result.ObjectWithPotentialError;
-import com.riromain.oak.colorpickeroak2.http.result.ObjectWithPotentialErrorImpl;
-import com.riromain.oak.colorpickeroak2.object.GetVariableInfo;
-import com.riromain.oak.colorpickeroak2.object.OakInfo;
-import com.riromain.oak.colorpickeroak2.object.FunctionWithValueRequest;
+import com.riromain.oak.colorpickeroak2.http.ExecuteOakFunction;
+import com.riromain.oak.colorpickeroak2.http.result.ObjectWithException;
+import com.riromain.oak.colorpickeroak2.object.ColorInfo;
+import com.riromain.oak.colorpickeroak2.object.OakFunctionRequest;
 
-import org.json.JSONException;
-import org.json.JSONObject;
+import java.io.IOException;
+
+import io.particle.android.sdk.cloud.ParticleCloudException;
+import io.particle.android.sdk.cloud.ParticleCloudSDK;
+import io.particle.android.sdk.cloud.ParticleDevice;
 
 public class MainOakActivity extends AppCompatActivity implements ColorPicker.OnColorChangedListener, OpacityBar.OnOpacityChangedListener {
     private static final String TAG = "MainOakActivity";
@@ -34,35 +34,20 @@ public class MainOakActivity extends AppCompatActivity implements ColorPicker.On
     public static final int STEP = 10;
     private View mRGBFormView;
     private LinearLayout mProgressLayout;
-    private Integer oldRedValue;
-    private Integer oldGreenValue;
-    private Integer oldBlueValue;
-    private Integer oldWhiteValue;
-    private Integer oldIntensity;
+    private ColorInfo colorInfo = new ColorInfo();
     private ColorPicker colorPicker;
     private OpacityBar rgbIntensityBar;
     private OpacityBar whiteIntensityBar;
-    private OakInfo oakInfo;
-    private Button onButton;
-    private Button offButton;
-
-    private enum RGBW {
-        RED,
-        GREEN,
-        BLUE,
-        WHITE,
-        INTENSITY;
-
-    }
+    private String oakDeviceID;
 
     @Override
     protected void onCreate(final Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        ParticleCloudSDK.init(this);
         setContentView(R.layout.activity_main_oak);
 
         SharedPreferences pref = getSharedPreferences(PrefConst.PREFS_NAME, 0);
-        String deviceId = pref.getString(PrefConst.DEVICE_ID_KEY, "");
-        String accessToken = pref.getString(PrefConst.ACCESS_TOKEN_KEY, "");
+        String deviceId = pref.getString(PrefConst.ACTIVE_DEVICE_ID_KEY, "");
         mRGBFormView = findViewById(R.id.rgb_picker_container_form);
         mRGBFormView.setVisibility(View.VISIBLE);
 
@@ -73,14 +58,14 @@ public class MainOakActivity extends AppCompatActivity implements ColorPicker.On
         colorPicker.addOpacityBar(rgbIntensityBar);
         whiteIntensityBar = (OpacityBar) findViewById(R.id.whiteintensitybar);
 
-        onButton = (Button) findViewById(R.id.on_button);
-        offButton = (Button) findViewById(R.id.off_button);
+        Button onButton = (Button) findViewById(R.id.on_button);
+        Button offButton = (Button) findViewById(R.id.off_button);
         onButton.setOnClickListener(new OnOffOnClickListener("on"));
         offButton.setOnClickListener(new OnOffOnClickListener("off"));
 
         colorPicker.setShowOldCenterColor(false);
-        oakInfo = new OakInfo(deviceId, accessToken);
-        retrieveActuallySetColor(oakInfo);
+        oakDeviceID = deviceId;
+        new RefreshColorFromDevice(colorInfo).execute(oakDeviceID);
         rgbIntensityBar.setOnOpacityChangedListener(this);
         whiteIntensityBar.setOnOpacityChangedListener(new WhiteIntensityOnChangedListener());
         colorPicker.setOnColorChangedListener(this);
@@ -95,22 +80,22 @@ public class MainOakActivity extends AppCompatActivity implements ColorPicker.On
 
         @Override
         public void onClick(View v) {
-            executeFunction(new FunctionWithValueRequest(oakInfo, arg, "led"));
+            executeFunction(new OakFunctionRequest(oakDeviceID, "led", arg));
         }
     }
 
     private class WhiteIntensityOnChangedListener implements OpacityBar.OnOpacityChangedListener {
         @Override
         public void onOpacityChanged(int whiteValue) {
-            if (!allOldValueSet()) {
+            if (!colorInfo.areAllValueSet()) {
                 //Value not finished to be retrieved yet, do nothing
                 //Or, no change detected
                 return;
             }
-            if (differenceIsWideEnough(whiteValue, oldWhiteValue) || 0 == whiteValue || 255 == whiteValue) {
+            if (differenceIsWideEnough(whiteValue, colorInfo.getWhiteValue()) || 0 == whiteValue || 255 == whiteValue) {
                 Log.v(TAG, "onSaturationChanged");
-                Log.v(TAG, "setting new white value [" + whiteValue + " - old value was" + oldWhiteValue + "]");
-                oldWhiteValue = whiteValue;
+                Log.v(TAG, "setting new white value [" + whiteValue + " - old value was" + colorInfo.getWhiteValue() + "]");
+                colorInfo.setWhiteValue(whiteValue);
                 sendValueToBoard();
             }
         }
@@ -118,22 +103,22 @@ public class MainOakActivity extends AppCompatActivity implements ColorPicker.On
 
     @Override
     public void onOpacityChanged(final int opacity) {
-        if (!allOldValueSet()) {
+        if (!colorInfo.areAllValueSet()) {
             //Value not finished to be retrieved yet, do nothing
             //Or, no change detected
             return;
         }
-        if (differenceIsWideEnough(opacity, oldIntensity) || 0 == opacity || 255 == opacity) {
+        if (differenceIsWideEnough(opacity, colorInfo.getIntensity()) || 0 == opacity || 255 == opacity) {
             Log.v(TAG, "onOpacityChanged");
-            Log.v(TAG, "setting new opacity [" + opacity + "] - old was [" + oldIntensity + "]");
-            oldIntensity = opacity;
+            Log.v(TAG, "setting new opacity [" + opacity + "] - old was [" + colorInfo.getIntensity() + "]");
+            colorInfo.setIntensity(opacity);
             sendOpacityToBoard();
         }
     }
 
     @Override
     public void onColorChanged(final int color) {
-        if (!allOldValueSet()) {
+        if (!colorInfo.areAllValueSet()) {
             //Value not finished to be retrieved yet, do nothing
             return;
         }
@@ -143,33 +128,28 @@ public class MainOakActivity extends AppCompatActivity implements ColorPicker.On
         if (shouldRefresh(red, green, blue)) {
             Log.v(TAG, "onColorChanged");
             Log.v(TAG, "setting new value red [" + red + "] green [" + green + "] blue [" + blue + "]");
-            Log.v(TAG, "old value was     red [" + oldRedValue + "] green [" + oldGreenValue + "] blue [" + oldBlueValue + "]");
-            oldRedValue = red;
-            oldGreenValue = green;
-            oldBlueValue = blue;
+            Log.v(TAG, "old value was     red [" + colorInfo.getRedValue() + "] green [" + colorInfo.getGreenValue() + "] blue [" + colorInfo.getBlueValue() + "]");
+            colorInfo.setRedValue(red);
+            colorInfo.setGreenValue(green);
+            colorInfo.setBlueValue(blue);
             sendValueToBoard();
         }
     }
 
-    private boolean allOldValueSet() {
-        return null != oldRedValue && null != oldGreenValue && null != oldBlueValue
-                && null != oldIntensity && null != oldWhiteValue;
-    }
-
     private void sendValueToBoard() {
-        String formattedValue = getFormattedValues(oldRedValue, oldGreenValue, oldBlueValue, oldWhiteValue);
+        String formattedValue = getFormattedValues(colorInfo.getRedValue(), colorInfo.getGreenValue(), colorInfo.getBlueValue(), colorInfo.getWhiteValue());
         Log.v(TAG, "sendingValue [" + formattedValue + "] to board");
-        executeFunction(new FunctionWithValueRequest(oakInfo, formattedValue, "value"));
+        executeFunction(new OakFunctionRequest(oakDeviceID, "value", formattedValue));
     }
 
     private void sendOpacityToBoard() {
-        String formattedValue = getFormattedValues(oldIntensity);
+        String formattedValue = getFormattedValues(colorInfo.getIntensity());
         Log.v(TAG, "sendingIntensity [" + formattedValue + "] to board");
-        executeFunction(new FunctionWithValueRequest(oakInfo, formattedValue, "intensity"));
+        executeFunction(new OakFunctionRequest(oakDeviceID, "intensity", formattedValue));
     }
 
-    private void executeFunction(final FunctionWithValueRequest info) {
-        new HttpPostValueForFunctionTask().execute(info);
+    private void executeFunction(final OakFunctionRequest info) {
+        new ExecuteOakFunction(this).execute(info);
     }
 
     @NonNull
@@ -182,9 +162,9 @@ public class MainOakActivity extends AppCompatActivity implements ColorPicker.On
     }
 
     private boolean shouldRefresh(final int red, final int green, final int blue) {
-        return differenceIsWideEnough(red, oldRedValue)
-            || differenceIsWideEnough(green, oldGreenValue)
-            || differenceIsWideEnough(blue, oldBlueValue);
+        return differenceIsWideEnough(red, colorInfo.getRedValue())
+            || differenceIsWideEnough(green, colorInfo.getGreenValue())
+            || differenceIsWideEnough(blue, colorInfo.getBlueValue());
     }
 
     private boolean differenceIsWideEnough(final int newValue, final int oldValue) {
@@ -232,99 +212,64 @@ public class MainOakActivity extends AppCompatActivity implements ColorPicker.On
         }
     }
 
-    private void retrieveActuallySetColor(final OakInfo oakInfo) {
-        new HttpAsynchTask(RGBW.RED).execute(new GetVariableInfo(oakInfo, "red"));
-        new HttpAsynchTask(RGBW.GREEN).execute(new GetVariableInfo(oakInfo, "green"));
-        new HttpAsynchTask(RGBW.BLUE).execute(new GetVariableInfo(oakInfo, "blue"));
-        new HttpAsynchTask(RGBW.WHITE).execute(new GetVariableInfo(oakInfo, "white"));
-        new HttpAsynchTask(RGBW.INTENSITY).execute(new GetVariableInfo(oakInfo, "inten"));
-    }
+    private class RefreshColorFromDevice extends AsyncTask<String, Void, ObjectWithException<ColorInfo>> {
 
-    private class HttpAsynchTask extends AsyncTask<GetVariableInfo, Void, ObjectWithPotentialError<String>> {
+        private final ColorInfo colorInfo;
 
-
-        private RGBW RGBW;
-        public HttpAsynchTask(final RGBW RGBW) {
-            this.RGBW = RGBW;
+        public RefreshColorFromDevice(final ColorInfo colorInfo) {
+            this.colorInfo = colorInfo;
         }
+
         @Override
-        protected ObjectWithPotentialError<String> doInBackground(final GetVariableInfo... params) {
-            ObjectWithPotentialError<String> resp = HttpGETEntityAsString.getVariable(params[0]);
-            if (resp.getError() != null || resp.getErrorCode() != null) {
-                return resp;
-            }
-            if (resp.getContent() == null) {
-                return new ObjectWithPotentialErrorImpl<>(0, "Received response is empty");
-            }
+        protected ObjectWithException<ColorInfo> doInBackground(final String... params) {
             try {
-                JSONObject reader = new JSONObject(resp.getContent());
-                return new ObjectWithPotentialErrorImpl<>(reader.getString("result"));
-            } catch (JSONException e) {
+                SharedPreferences pref = getSharedPreferences(PrefConst.PREFS_NAME, 0);
+
+                if (!ParticleCloudSDK.getCloud().isLoggedIn()) {
+                    ParticleCloudSDK.getCloud().logIn(pref.getString(PrefConst.ACCOUNT_EMAIL_KEY, ""), pref.getString(PrefConst.ACCOUNT_PASSWORD_KEY, ""));
+                }
+                ParticleDevice device = ParticleCloudSDK.getCloud().getDevice(params[0]);
+                colorInfo.setRedValue(device.getIntVariable("red"));
+                colorInfo.setGreenValue(device.getIntVariable("green"));
+                colorInfo.setBlueValue(device.getIntVariable("blue"));
+                colorInfo.setWhiteValue(device.getIntVariable("white"));
+                colorInfo.setIntensity(device.getIntVariable("inten"));
+                return new ObjectWithException<>(null, colorInfo);
+            } catch (ParticleCloudException | ParticleDevice.VariableDoesNotExistException | IOException e) {
                 e.printStackTrace();
-                return new ObjectWithPotentialErrorImpl<>(0, "Error while geting name " + e.getMessage());
+                Log.v(TAG, MainOakActivity.this.getText(R.string.error_fetch_actual_value).toString(), e);
+                return new ObjectWithException<>(e, null);
             }
         }
 
         @Override
-        protected void onPostExecute(final ObjectWithPotentialError<String> resp) {
-
-            if (resp.getErrorCode() == null && resp.getError() == null && null != resp.getContent()) {
-                if (RGBW.RED.equals(RGBW)) {
-                    oldRedValue = Integer.parseInt(resp.getContent());
-                }
-                if (RGBW.GREEN.equals(RGBW)) {
-                    oldGreenValue = Integer.parseInt(resp.getContent());
-                }
-                if (RGBW.BLUE.equals(RGBW)) {
-                    oldBlueValue = Integer.parseInt(resp.getContent());
-                }
-                if (RGBW.WHITE.equals(RGBW)) {
-                    oldWhiteValue = Integer.parseInt(resp.getContent());
-                }
-                if (RGBW.INTENSITY.equals(RGBW)) {
-                    oldIntensity = Integer.parseInt(resp.getContent());
-                }
-                if (allOldValueSet()) {
-                    Log.v(TAG, "setValueRetriever");
-                    Log.v(TAG, "got value red [" + oldRedValue + "] green [" + oldGreenValue + "] blue [" + oldBlueValue + "] white [" + oldWhiteValue + "] intensity [" + oldIntensity + "]");
-                    colorPicker.setColor(Color.rgb(oldRedValue, oldGreenValue, oldBlueValue));
-                    rgbIntensityBar.setOpacity(oldIntensity);
-                    whiteIntensityBar.setOpacity(oldWhiteValue);
-                    showProgress(false);
-                }
+        protected void onPostExecute(final ObjectWithException<ColorInfo> resp) {
+            Exception exception = resp.getException();
+            if (null == exception) {
+                ColorInfo colorInfo = resp.getObject();
+                Log.v(TAG, "setValueRetriever");
+                Log.v(TAG, "got value red [" + colorInfo.getRedValue() + "] green [" + colorInfo.getGreenValue() + "] blue ["
+                        + colorInfo.getBlueValue() + "] white [" + colorInfo.getWhiteValue() + "] intensity [" + colorInfo.getIntensity() + "]");
+                colorPicker.setColor(Color.rgb(colorInfo.getRedValue(), colorInfo.getGreenValue(), colorInfo.getBlueValue()));
+                rgbIntensityBar.setOpacity(colorInfo.getIntensity());
+                whiteIntensityBar.setOpacity(colorInfo.getWhiteValue());
+                showProgress(false);
                 // finish();
             } else {
-                String error = getText(R.string.error_fetch_actual_value) + " - Error code: " + resp.getErrorCode() + " - " + resp.getError();
-                Log.v(TAG, "Got error while retrieving set value - " + error);
-                ErrorDialog errorDialog = new ErrorDialog();
-                Bundle args = new Bundle(1);
-                args.putString(ErrorDialog.ERROR_INFO, error);
-                errorDialog.setArguments(args);
-                errorDialog.show(getFragmentManager(), "errordialog");
+                showProgress(false);
+                showErrorForException(exception, MainOakActivity.this.getText(R.string.error_fetch_actual_value));
             }
         }
     }
 
-    private class HttpPostValueForFunctionTask extends AsyncTask<FunctionWithValueRequest, Void, ObjectWithPotentialError<String>> {
-
-        @Override
-        protected ObjectWithPotentialError<String> doInBackground(final FunctionWithValueRequest... params) {
-            return HttpPostNewValue.execute(params[0]);
-        }
-
-        @Override
-        protected void onPostExecute(final ObjectWithPotentialError<String> resp) {
-
-            if (resp.getErrorCode() != null && resp.getError() != null) {
-                String error = getText(R.string.error_set_new_value) + " - Error code: " + resp.getErrorCode() + " - " + resp.getError();
-                Log.v(TAG, "Got error while setting new value - " + error);
-                ErrorDialog errorDialog = new ErrorDialog();
-                Bundle args = new Bundle(1);
-                args.putString(ErrorDialog.ERROR_INFO, error);
-                errorDialog.setArguments(args);
-                errorDialog.show(getFragmentManager(), "errordialog");
-            }
-        }
+    private void showErrorForException(final Exception exception, final CharSequence customerText) {
+        String error = customerText + " - Exception: " + exception.getCause() + " - " + exception.getMessage();
+        Log.v(TAG, "Got error while retrieving set value - " + error, exception);
+        ErrorDialog errorDialog = new ErrorDialog();
+        Bundle args = new Bundle(1);
+        args.putString(ErrorDialog.ERROR_INFO, error);
+        errorDialog.setArguments(args);
+        errorDialog.show(getFragmentManager(), "errordialog");
     }
 
 }
