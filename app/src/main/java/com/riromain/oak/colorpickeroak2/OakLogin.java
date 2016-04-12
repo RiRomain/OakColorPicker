@@ -79,7 +79,11 @@ public class OakLogin extends AppCompatActivity {
         });
     }
 
-    private void startDeviceSelectionActivity() {
+    private void startDeviceSelectionOrMainActivityWhenSelectedActivity() {
+        SharedPreferences pref = getSharedPreferences(PrefConst.PREFS_NAME, 0);
+        if (pref.contains(PrefConst.ACTIVE_DEVICE_ID_KEY)) {
+            startActivity(new Intent(this, MainOakActivity.class));
+        }
         startActivity(new Intent(this, DeviceSelectionActivity.class));
     }
     /**
@@ -178,7 +182,7 @@ public class OakLogin extends AppCompatActivity {
             showProgress(false);
 
             if (resp == null) {
-                startDeviceSelectionActivity();
+                startDeviceSelectionOrMainActivityWhenSelectedActivity();
             } else {
                 String error = getText(R.string.error_login_particle) + " - Error code: " + resp.getBestMessage() + " - " + resp.getServerErrorMsg();
                 ErrorDialog errorDialog = new ErrorDialog();

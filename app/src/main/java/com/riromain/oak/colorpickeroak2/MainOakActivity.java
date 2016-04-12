@@ -12,7 +12,7 @@ import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
-import android.widget.ArrayAdapter;
+import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.Spinner;
@@ -25,6 +25,7 @@ import com.riromain.oak.colorpickeroak2.http.result.ObjectWithException;
 import com.riromain.oak.colorpickeroak2.object.ColorInfo;
 import com.riromain.oak.colorpickeroak2.object.OakFunctionRequest;
 import com.riromain.oak.colorpickeroak2.object.adapter.ParticleDeviceAdapter;
+import com.riromain.oak.colorpickeroak2.onclicklistener.OnOffOnClickListener;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -45,6 +46,7 @@ public class MainOakActivity extends AppCompatActivity implements ColorPicker.On
     private OpacityBar whiteIntensityBar;
     private String oakDeviceID;
     private Spinner mDeviceSelectionSpinner;
+    private ParticleDeviceAdapter myAdapter;
 
     @Override
     protected void onCreate(final Bundle savedInstanceState) {
@@ -53,7 +55,7 @@ public class MainOakActivity extends AppCompatActivity implements ColorPicker.On
         setContentView(R.layout.activity_main_oak);
 
         SharedPreferences pref = getSharedPreferences(PrefConst.PREFS_NAME, 0);
-        String deviceId = pref.getString(PrefConst.ACTIVE_DEVICE_ID_KEY, "");
+        oakDeviceID = pref.getString(PrefConst.ACTIVE_DEVICE_ID_KEY, "");
         mRGBFormView = findViewById(R.id.rgb_picker_container_form);
         mRGBFormView.setVisibility(View.VISIBLE);
 
@@ -66,41 +68,28 @@ public class MainOakActivity extends AppCompatActivity implements ColorPicker.On
 
         Button onButton = (Button) findViewById(R.id.on_button);
         Button offButton = (Button) findViewById(R.id.off_button);
-        onButton.setOnClickListener(new OnOffOnClickListener("on"));
-        offButton.setOnClickListener(new OnOffOnClickListener("off"));
+        onButton.setOnClickListener(new OnOffOnClickListener("on", this, MainOakActivity.this.oakDeviceID));
+        offButton.setOnClickListener(new OnOffOnClickListener("off", this, MainOakActivity.this.oakDeviceID));
 
 
         //TODO add function to device selection spinner
         mDeviceSelectionSpinner = (Spinner) findViewById(R.id.device_selection_spinner);
         ArrayList<ParticleDevice> particleDevices = new ArrayList<>();
-        ParticleDeviceAdapter myAdapter = new ParticleDeviceAdapter(this, particleDevices);
+        myAdapter = new ParticleDeviceAdapter(this, particleDevices);
         GetDeviceList mDeviceGetTask = new GetDeviceList(myAdapter, getFragmentManager(), getApplicationContext());
         mDeviceGetTask.execute();
         mDeviceSelectionSpinner.setAdapter(myAdapter);
+        mDeviceSelectionSpinner.setOnItemSelectedListener(new OnSpinnerItemSelectedListener());
         //TODO add function to device selection spinner
         //Skip device selection when device ID already saved + make sure device still available.
         //OR Defaulting to first device.
         //+ Add entry to control all/several device at the same time
 
         colorPicker.setShowOldCenterColor(false);
-        oakDeviceID = deviceId;
         new RefreshColorFromDevice(colorInfo).execute(oakDeviceID);
         rgbIntensityBar.setOnOpacityChangedListener(this);
         whiteIntensityBar.setOnOpacityChangedListener(new WhiteIntensityOnChangedListener());
         colorPicker.setOnColorChangedListener(this);
-    }
-
-    private class OnOffOnClickListener implements View.OnClickListener {
-        private String arg;
-
-        public OnOffOnClickListener(final String arg) {
-            this.arg = arg;
-        }
-
-        @Override
-        public void onClick(View v) {
-            executeFunction(new OakFunctionRequest(oakDeviceID, "led", arg));
-        }
     }
 
     private class WhiteIntensityOnChangedListener implements OpacityBar.OnOpacityChangedListener {
@@ -158,17 +147,18 @@ public class MainOakActivity extends AppCompatActivity implements ColorPicker.On
     private void sendValueToBoard() {
         String formattedValue = getFormattedValues(colorInfo.getRedValue(), colorInfo.getGreenValue(), colorInfo.getBlueValue(), colorInfo.getWhiteValue());
         Log.v(TAG, "sendingValue [" + formattedValue + "] to board");
-        executeFunction(new OakFunctionRequest(oakDeviceID, "value", formattedValue));
+        executeFunction(new OakFunctionRequest(oakDeviceID, "value", formattedValue), this);
     }
 
     private void sendOpacityToBoard() {
         String formattedValue = getFormattedValues(colorInfo.getIntensity());
         Log.v(TAG, "sendingIntensity [" + formattedValue + "] to board");
-        executeFunction(new OakFunctionRequest(oakDeviceID, "intensity", formattedValue));
+        executeFunction(new OakFunctionRequest(oakDeviceID, "intensity", formattedValue), this);
     }
 
-    private void executeFunction(final OakFunctionRequest info) {
-        new ExecuteOakFunction(this).execute(info);
+    private void executeFunction(final OakFunctionRequest info,
+                                 final MainOakActivity callingActivity) {
+        new ExecuteOakFunction(callingActivity).execute(info);
     }
 
     @NonNull
@@ -291,4 +281,21 @@ public class MainOakActivity extends AppCompatActivity implements ColorPicker.On
         errorDialog.show(getFragmentManager(), "errordialog");
     }
 
+    private class OnSpinnerItemSelectedListener implements AdapterView.OnItemSelectedListener {
+        @Override
+        public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+            ParticleDevice selectedItem = myAdapter.getItem(position);
+            oakDeviceID = selectedItem.getID();
+            SharedPreferences sharedPreferences = getSharedPreferences(PrefConst.PREFS_NAME, 0);
+            SharedPreferences.Editor editor = sharedPreferences.edit();
+            editor.putString(PrefConst.ACTIVE_DEVICE_ID_KEY, oakDeviceID);
+            editor.apply();
+            new RefreshColorFromDevice(colorInfo).execute(oakDeviceID);
+        }
+
+        @Override
+        public void onNothingSelected(AdapterView<?> parent) {
+
+        }
+    }
 }
