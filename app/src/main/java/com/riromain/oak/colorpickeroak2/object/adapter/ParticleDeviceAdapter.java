@@ -32,8 +32,7 @@ public class ParticleDeviceAdapter extends ArrayAdapter<ParticleDevice> {
         this.devicesList = objects;
     }
 
-    @Override
-    public View getView(int position, View convertView, ViewGroup parent) {
+    public View getCustomView(int position, View convertView, ViewGroup parent) {
         LayoutInflater inflater = (LayoutInflater) context.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
         View rowView = inflater.inflate(R.layout.device_entry_layout, parent, false);
 
@@ -69,5 +68,18 @@ public class ParticleDeviceAdapter extends ArrayAdapter<ParticleDevice> {
             Log.v(TAG, "Got 0 entries");
         }
         this.notifyDataSetChanged();
+    }
+
+    // It gets a View that displays in the drop down popup the data at the specified position
+    @Override
+    public View getDropDownView(int position, View convertView,
+                                ViewGroup parent) {
+        return getCustomView(position, convertView, parent);
+    }
+
+    // It gets a View that displays the data at the specified position
+    @Override
+    public View getView(int position, View convertView, ViewGroup parent) {
+        return getCustomView(position, convertView, parent);
     }
 }

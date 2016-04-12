@@ -12,17 +12,22 @@ import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.LinearLayout;
+import android.widget.Spinner;
 
 import com.larswerkman.holocolorpicker.ColorPicker;
 import com.larswerkman.holocolorpicker.OpacityBar;
 import com.riromain.oak.colorpickeroak2.http.ExecuteOakFunction;
+import com.riromain.oak.colorpickeroak2.http.asynctask.GetDeviceList;
 import com.riromain.oak.colorpickeroak2.http.result.ObjectWithException;
 import com.riromain.oak.colorpickeroak2.object.ColorInfo;
 import com.riromain.oak.colorpickeroak2.object.OakFunctionRequest;
+import com.riromain.oak.colorpickeroak2.object.adapter.ParticleDeviceAdapter;
 
 import java.io.IOException;
+import java.util.ArrayList;
 
 import io.particle.android.sdk.cloud.ParticleCloudException;
 import io.particle.android.sdk.cloud.ParticleCloudSDK;
@@ -39,6 +44,7 @@ public class MainOakActivity extends AppCompatActivity implements ColorPicker.On
     private OpacityBar rgbIntensityBar;
     private OpacityBar whiteIntensityBar;
     private String oakDeviceID;
+    private Spinner mDeviceSelectionSpinner;
 
     @Override
     protected void onCreate(final Bundle savedInstanceState) {
@@ -62,6 +68,19 @@ public class MainOakActivity extends AppCompatActivity implements ColorPicker.On
         Button offButton = (Button) findViewById(R.id.off_button);
         onButton.setOnClickListener(new OnOffOnClickListener("on"));
         offButton.setOnClickListener(new OnOffOnClickListener("off"));
+
+
+        //TODO add function to device selection spinner
+        mDeviceSelectionSpinner = (Spinner) findViewById(R.id.device_selection_spinner);
+        ArrayList<ParticleDevice> particleDevices = new ArrayList<>();
+        ParticleDeviceAdapter myAdapter = new ParticleDeviceAdapter(this, particleDevices);
+        GetDeviceList mDeviceGetTask = new GetDeviceList(myAdapter, getFragmentManager(), getApplicationContext());
+        mDeviceGetTask.execute();
+        mDeviceSelectionSpinner.setAdapter(myAdapter);
+        //TODO add function to device selection spinner
+        //Skip device selection when device ID already saved + make sure device still available.
+        //OR Defaulting to first device.
+        //+ Add entry to control all/several device at the same time
 
         colorPicker.setShowOldCenterColor(false);
         oakDeviceID = deviceId;
