@@ -27,6 +27,7 @@
     <string name="title_device_selection">Please select the device you\'d like to use</string>
     <string name="title_oak_login">Please login to your Particle account</string>
     <string name="loading_previous_value">Retrieving previous set value</string>
+    <string name="login_in_progress">Login your Particle account</string>
     <string name="boutton_on">ON</string>
     <string name="button_off">OFF</string>
     <string name="rgb_intensity">RGB Intensity</string>

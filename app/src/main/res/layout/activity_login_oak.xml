@@ -11,18 +11,29 @@
     tools:context="com.riromain.oak.colorpickeroak2.OakLogin">
 
     <!-- Login progress -->
-    <ProgressBar
+    <LinearLayout
         android:id="@+id/email_login_progress"
-        style="?android:attr/progressBarStyleLarge"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="8dp"
-        android:visibility="gone" />
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:visibility="gone">
+        <ProgressBar
+            style="?android:attr/progressBarStyleLarge"
+            android:layout_width="fill_parent"
+            android:layout_height="400dp"
+            android:layout_gravity="center_horizontal" />
+        <TextView
+            android:text="@string/login_in_progress"
+            android:layout_width="match_parent"
+            android:layout_height="20dp"
+            android:gravity="center" />
+    </LinearLayout>
 
     <ScrollView
         android:id="@+id/login_form"
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_height="match_parent"
+        android:visibility="visible">
 
         <LinearLayout
             android:id="@+id/email_login_form"

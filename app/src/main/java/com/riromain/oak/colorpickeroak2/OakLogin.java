@@ -48,8 +48,12 @@ public class OakLogin extends AppCompatActivity {
         mPasswordView = (EditText) findViewById(R.id.passwordOakAccount);
 
         //Initialize cloud API and connect directly if credential are available
+        boolean directLogin = pref.contains(PrefConst.ACCOUNT_EMAIL_KEY) && pref.contains(PrefConst.ACCOUNT_PASSWORD_KEY);
+        if (directLogin) {
+            showProgress(true);
+        }
         ParticleCloudSDK.init(this);
-        if (pref.contains(PrefConst.ACCOUNT_EMAIL_KEY) && pref.contains(PrefConst.ACCOUNT_PASSWORD_KEY)) {
+        if (directLogin) {
             executeLogin(pref.getString(PrefConst.ACCOUNT_EMAIL_KEY, ""), pref.getString(PrefConst.ACCOUNT_PASSWORD_KEY, ""));
         }
 
@@ -159,7 +163,6 @@ public class OakLogin extends AppCompatActivity {
         @Override
         protected ParticleCloudException doInBackground(final Void... params) {
             try {
-                //TODO check if call with Void should be defined as stated here.
                 ParticleCloudSDK.getCloud().logIn(emailAddress, password);
                 return null;
             } catch (ParticleCloudException e) {
