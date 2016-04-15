@@ -8,8 +8,11 @@ import android.content.SharedPreferences;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
+import android.support.annotation.NonNull;
+import android.support.v4.app.TaskStackBuilder;
 import android.support.v7.app.AppCompatActivity;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.inputmethod.EditorInfo;
@@ -17,8 +20,20 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 
+import com.riromain.oak.colorpickeroak2.object.ColorInfo;
+import com.riromain.oak.colorpickeroak2.object.DeviceStatus;
+import com.riromain.oak.colorpickeroak2.object.ParcelableDevice;
+
+import java.io.IOException;
+import java.text.DateFormat;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
 import io.particle.android.sdk.cloud.ParticleCloudException;
 import io.particle.android.sdk.cloud.ParticleCloudSDK;
+import io.particle.android.sdk.cloud.ParticleDevice;
 
 /**
  * Created by Rinie Romain on 10/04/2016.
@@ -29,11 +44,14 @@ public class OakLogin extends AppCompatActivity {
      * Keep track of oak login task
      */
     private OakLoginTask mOakLoginTask = null;
+    private static final String TAG = "MainOakActivity";
 
+    private ArrayList<ParcelableDevice> loadedDevice;
     private EditText mEmailAddressView;
     private EditText mPasswordView;
     private View mEmailLoginFormView;
     private View mEmailLoginProgressView;
+    private LoadDeviceListTask mOakDeviceGetTask;
 
     @Override
     protected void onCreate(final Bundle savedInstanceState) {
@@ -79,12 +97,8 @@ public class OakLogin extends AppCompatActivity {
         });
     }
 
-    private void startDeviceSelectionOrMainActivityWhenSelectedActivity() {
-        SharedPreferences pref = getSharedPreferences(PrefConst.PREFS_NAME, 0);
-        if (pref.contains(PrefConst.ACTIVE_DEVICE_ID_KEY)) {
-            startActivity(new Intent(this, MainOakActivity.class));
-        }
-        startActivity(new Intent(this, DeviceSelectionActivity.class));
+    private void startMainActivity() {
+        startActivity(new Intent(this, MainOakActivity.class).putParcelableArrayListExtra("ParcelableDevice", loadedDevice));
     }
     /**
      * Attempts to sign in or register the account specified by the login form.
@@ -177,12 +191,12 @@ public class OakLogin extends AppCompatActivity {
 
         @Override
         protected void onPostExecute(final ParticleCloudException resp) {
-            //  mAuthTask = null;
             mOakLoginTask = null;
-            showProgress(false);
 
             if (resp == null) {
-                startDeviceSelectionOrMainActivityWhenSelectedActivity();
+                //There was no error, start to read available device
+                mOakDeviceGetTask = new LoadDeviceListTask();
+                mOakDeviceGetTask.execute();
             } else {
                 String error = getText(R.string.error_login_particle) + " - Error code: " + resp.getBestMessage() + " - " + resp.getServerErrorMsg();
                 ErrorDialog errorDialog = new ErrorDialog();
@@ -196,6 +210,104 @@ public class OakLogin extends AppCompatActivity {
         protected void onCancelled() {
             showProgress(false);
         }
+    }
+
+    private class LoadDeviceListTask extends AsyncTask<Void, Void, ParticleCloudException> {
+
+        @Override
+        protected ParticleCloudException doInBackground(final Void... params) {
+            try {
+                ArrayList<ParcelableDevice> rgbDriverList = new ArrayList<>();
+                for (ParticleDevice device : ParticleCloudSDK.getCloud().getDevices()) {
+                    rgbDriverList.add(convertToParcelableDevice(device));
+                }
+                loadedDevice = rgbDriverList;
+                return null;
+            } catch (ParticleCloudException e) {
+                e.printStackTrace();
+                return e;
+            }
+        }
+
+        @NonNull
+        private ParcelableDevice convertToParcelableDevice(final ParticleDevice device) throws ParticleCloudException {
+            ParcelableDevice parcelableDevice = new ParcelableDevice();
+            parcelableDevice.setDeviceID(device.getID());
+            parcelableDevice.setDeviceName(device.getName());
+            parcelableDevice.setLastConnection(DateFormat.getDateTimeInstance().format(device.getLastHeard()));
+            if (!device.isConnected()) {
+                parcelableDevice.setStatus(DeviceStatus.DISCONNECTED);
+                return parcelableDevice;
+            }
+            Set<String> functions = device.getFunctions();
+            if (functions.isEmpty()) {
+                parcelableDevice.setStatus(DeviceStatus.NOT_COMPATIBLE);
+                return parcelableDevice;
+            }
+            Map<String, ParticleDevice.VariableType> variables = device.getVariables();
+            if (variables.isEmpty()) {
+                parcelableDevice.setStatus(DeviceStatus.NOT_COMPATIBLE);
+                return parcelableDevice;
+            }
+            Log.v(TAG, "device support Variables: " + variables.toString());
+            Log.v(TAG, "device support function: " + functions.toString());
+            ColorInfo colorInfo = new ColorInfo();
+            try {
+                colorInfo.setRedValue(device.getIntVariable("red"));
+                colorInfo.setGreenValue(device.getIntVariable("green"));
+                colorInfo.setBlueValue(device.getIntVariable("blue"));
+                colorInfo.setWhiteValue(device.getIntVariable("white"));
+                colorInfo.setIntensity(device.getIntVariable("inten"));
+                Log.v(TAG, "got value red [" + colorInfo.getRedValue() + "] green [" + colorInfo.getGreenValue() + "] blue ["
+                    + colorInfo.getBlueValue() + "] white [" + colorInfo.getWhiteValue() + "] intensity [" + colorInfo.getIntensity() + "]");
+            }  catch (IOException e) {
+                throw new ParticleCloudException(e);
+            } catch (ParticleDevice.VariableDoesNotExistException e) {
+                parcelableDevice.setStatus(DeviceStatus.NOT_COMPATIBLE);
+                return parcelableDevice;
+            }
+            parcelableDevice.setStatus(DeviceStatus.CONNECTED);
+            parcelableDevice.setColorInfo(colorInfo);
+            return parcelableDevice;
+        }
+
+        @Override
+        protected void onPostExecute(final ParticleCloudException exception) {
+            //  mAuthTask = null;
+            mOakDeviceGetTask = null;
+            showProgress(false);
+
+            if (null != exception) {
+                String error = getText(R.string.error_fetching_device_particle) + " - Error code: " + exception.getMessage();
+                ErrorDialog errorDialog = new ErrorDialog();
+                Bundle args = new Bundle(1);
+                args.putString(ErrorDialog.ERROR_INFO, error);
+                errorDialog.setArguments(args);
+                errorDialog.show(getFragmentManager(), "errordialog");
+            } else if (!oneDeviceConnected(loadedDevice)) {
+                ErrorDialog errorDialog = new ErrorDialog();
+                Bundle args = new Bundle(1);
+                args.putString(ErrorDialog.ERROR_INFO, getText(R.string.error_no_device_active) + "");
+                errorDialog.setArguments(args);
+                errorDialog.show(getFragmentManager(), "errordialog");
+            } else {
+                startMainActivity();
+            }
+        }
+        @Override
+        protected void onCancelled() {
+            showProgress(false);
+        };
+
+    }
+
+    private boolean oneDeviceConnected(final List<ParcelableDevice> devices) {
+        for (ParcelableDevice device : devices) {
+            if (DeviceStatus.CONNECTED.equals(device.getStatus())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

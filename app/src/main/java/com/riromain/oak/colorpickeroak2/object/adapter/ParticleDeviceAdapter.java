@@ -11,6 +11,8 @@ import android.widget.ArrayAdapter;
 import android.widget.TextView;
 
 import com.riromain.oak.colorpickeroak2.R;
+import com.riromain.oak.colorpickeroak2.object.DeviceStatus;
+import com.riromain.oak.colorpickeroak2.object.ParcelableDevice;
 
 import java.util.List;
 
@@ -19,14 +21,14 @@ import io.particle.android.sdk.cloud.ParticleDevice;
 /**
  * Created by rrinie on 11.04.16.
  */
-public class ParticleDeviceAdapter extends ArrayAdapter<ParticleDevice> {
+public class ParticleDeviceAdapter extends ArrayAdapter<ParcelableDevice> {
     private static final String TAG = "ParticleDeviceAdapter";
 
     private final Context context;
-    private List<ParticleDevice> devicesList;
+    private List<ParcelableDevice> devicesList;
 
     public ParticleDeviceAdapter(final Context context,
-                                 final List<ParticleDevice> objects) {
+                                 final List<ParcelableDevice> objects) {
         super(context, -1, objects);
         this.context = context;
         this.devicesList = objects;
@@ -36,9 +38,9 @@ public class ParticleDeviceAdapter extends ArrayAdapter<ParticleDevice> {
         LayoutInflater inflater = (LayoutInflater) context.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
         View rowView = inflater.inflate(R.layout.device_entry_layout, parent, false);
 
-        ParticleDevice particleDevice = devicesList.get(position);
-        String name = particleDevice.getName();
-        String deviceID = particleDevice.getID();
+        ParcelableDevice particleDevice = devicesList.get(position);
+        String name = particleDevice.getDeviceName();
+        String deviceID = particleDevice.getDeviceID();
 
         Log.v(TAG, "set device name " + name);
         TextView deviceNameView = (TextView) rowView.findViewById(R.id.device_name);
@@ -46,28 +48,18 @@ public class ParticleDeviceAdapter extends ArrayAdapter<ParticleDevice> {
         Log.v(TAG, "set device ID " + deviceID);
         TextView deviceIdView = (TextView) rowView.findViewById(R.id.device_id);
         deviceIdView.setText(deviceID);
-        Log.v(TAG, "set connection status " + particleDevice.isConnected());
-        if (!particleDevice.isConnected()) {
+        DeviceStatus status = particleDevice.getStatus();
+        Log.v(TAG, "set connection status " + status.name());
+        if (DeviceStatus.DISCONNECTED.equals(status)) {
             rowView.setBackgroundColor(Color.RED);
-            return rowView;
         }
-        if (particleDevice.getFunctions().isEmpty()) {
+        if (DeviceStatus.NOT_COMPATIBLE.equals(status)) {
             rowView.setBackgroundColor(Color.YELLOW);
-            return rowView;
+        }
+        if (DeviceStatus.CONNECTED.equals(status)) {
+            rowView.setBackgroundColor(Color.GREEN);
         }
         return rowView;
-    }
-
-    public void upDateEntries(List<ParticleDevice> entries) {
-        Log.v(TAG, "MyAdapter.upDateEntries");
-        devicesList.clear();
-        if (null != entries) {
-            Log.v(TAG, "Adding the " + entries.size() + " new entries");
-            devicesList.addAll(entries);
-        } else {
-            Log.v(TAG, "Got 0 entries");
-        }
-        this.notifyDataSetChanged();
     }
 
     // It gets a View that displays in the drop down popup the data at the specified position

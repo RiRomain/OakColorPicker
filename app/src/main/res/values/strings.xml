@@ -17,6 +17,7 @@
     <string name="error_fetch_name">Error while fetching your device name</string>
     <string name="error_login_particle">Error while trying to connect to your Particle account</string>
     <string name="error_fetching_device_particle">Error while trying to get your Particle device</string>
+    <string name="error_no_device_active">None of the device are connected or compatible</string>
     <string name="error_invalid_password">This access token is too short</string>
     <string name="error_incorrect_password">This access token is incorrect</string>
     <string name="error_field_required">This field is required</string>

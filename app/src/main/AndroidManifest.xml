@@ -26,9 +26,6 @@
         <activity
             android:name=".MainOakActivity"
             android:label="@string/title_activity_main_oak"/>
-        <activity
-            android:name=".DeviceSelectionActivity"
-            android:label="@string/title_device_selection"/>
 
     </application>
 
