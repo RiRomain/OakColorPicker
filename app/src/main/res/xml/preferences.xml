@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+    <PreferenceCategory
+        android:key="com.riromain.oak.colorpickeroak2.account"
+        android:title="@string/particle_account_preference_title">
+        <EditTextPreference
+            android:key="com.riromain.oak.colorpickeroak2.accountEmailKey"
+            android:summary="@string/particle_account_email_edit_summary"
+            android:title="@string/particle_account_email_edit_title"/>
+        <EditTextPreference
+            android:inputType="textPassword"
+            android:key="com.riromain.oak.colorpickeroak2.accountPassKey"
+            android:summary="@string/particle_account_password_edit_summary"
+            android:title="@string/particle_account_password_edit_title"/>
+    </PreferenceCategory>
+
+    <!--Maybe try the PreferenceScreen to open a subScreen with the two input email and password -->
+
+</PreferenceScreen>

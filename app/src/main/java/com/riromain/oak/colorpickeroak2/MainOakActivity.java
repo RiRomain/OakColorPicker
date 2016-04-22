@@ -1,20 +1,19 @@
 package com.riromain.oak.colorpickeroak2;
 
-import android.animation.Animator;
-import android.animation.AnimatorListenerAdapter;
-import android.annotation.TargetApi;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.os.AsyncTask;
-import android.os.Build;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.Button;
-import android.widget.LinearLayout;
 import android.widget.Spinner;
 
 import com.larswerkman.holocolorpicker.ColorPicker;
@@ -49,6 +48,27 @@ public class MainOakActivity extends AppCompatActivity implements ColorPicker.On
     private OpacityBar whiteIntensityBar;
     private ParticleDeviceAdapter myAdapter;
     private ParcelableDevice activeDevice;
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu)
+    {
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.menu, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()) {
+            case R.id.preferences: {
+                Intent intent = new Intent();
+                intent.setClassName(this, "com.riromain.oak.colorpickeroak2.MyPreferenceActivity");
+                startActivity(intent);
+                return true;
+            }
+        }
+        return super.onOptionsItemSelected(item);
+    }
 
     @Override
     protected void onCreate(final Bundle savedInstanceState) {
