@@ -16,17 +16,21 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
         <activity
-            android:name=".ConfigOakActivity"
+            android:name=".OakLogin"
             android:label="@string/app_name">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
         <activity
             android:name=".MainOakActivity"
-            android:label="@string/title_activity_main_oak"></activity>
+            android:label="@string/title_activity_main_oak"/>
+        <activity
+            android:name="com.riromain.oak.colorpickeroak2.MyPreferenceActivity"
+            android:label="Preferences">
+        </activity>
+
     </application>
 
     <!--android:theme="@style/AppTheme.NoActionBar"--></manifest>

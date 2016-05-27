@@ -31,3 +31,9 @@ out
 
 #ignore android studio files
 local.properties
+
+#ignore android project files
+gradlew
+gradlew.bat
+gradle-wrapper.jar
+gradle-wrapper.properties
