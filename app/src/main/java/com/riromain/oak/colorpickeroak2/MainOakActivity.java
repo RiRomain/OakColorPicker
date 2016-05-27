@@ -76,6 +76,12 @@ public class MainOakActivity extends AppCompatActivity implements ColorPicker.On
         ParticleCloudSDK.init(this);
         setContentView(R.layout.activity_main_oak);
 
+        //ParcelableDevice
+        ArrayList<ParcelableDevice> parcelableDeviceList = getIntent().getExtras().getParcelableArrayList("ParcelableDevice");
+        SharedPreferences sharedPreferences = getSharedPreferences(PrefConst.PREFS_NAME, 0);
+        activeDevice = getActiveDevice(sharedPreferences.getString(PrefConst.ACTIVE_DEVICE_ID_KEY, ""), parcelableDeviceList);
+
+
         mRGBFormView = findViewById(R.id.rgb_picker_container_form);
         mRGBFormView.setVisibility(View.VISIBLE);
 
@@ -88,24 +94,14 @@ public class MainOakActivity extends AppCompatActivity implements ColorPicker.On
         colorPicker.addOpacityBar(rgbIntensityBar);
         whiteIntensityBar = (OpacityBar) findViewById(R.id.whiteintensitybar);
 
-        Button onButton = (Button) findViewById(R.id.on_button);
-        Button offButton = (Button) findViewById(R.id.off_button);
-        onButton.setOnClickListener(new OnOffOnClickListener("on", this, activeDevice.getDeviceID()));
-        offButton.setOnClickListener(new OnOffOnClickListener("off", this, activeDevice.getDeviceID()));
-
-
-        //ParcelableDevice
-        ArrayList<ParcelableDevice> parcelableDeviceList = getIntent().getExtras().getParcelableArrayList("ParcelableDevice");
 
         Spinner mDeviceSelectionSpinner = (Spinner) findViewById(R.id.device_selection_spinner);
         myAdapter = new ParticleDeviceAdapter(this, parcelableDeviceList);
         mDeviceSelectionSpinner.setAdapter(myAdapter);
         mDeviceSelectionSpinner.setOnItemSelectedListener(new OnSpinnerItemSelectedListener());
-
+        selectActiveDeviceFromSpinner(mDeviceSelectionSpinner, activeDevice.getDeviceID());
         colorPicker.setShowOldCenterColor(false);
 
-        SharedPreferences sharedPreferences = getSharedPreferences(PrefConst.PREFS_NAME, 0);
-        activeDevice = getActiveDevice(sharedPreferences.getString(PrefConst.ACTIVE_DEVICE_ID_KEY, ""), parcelableDeviceList);
 
         ColorInfo colorInfo = activeDevice.getColorInfo();
         colorPicker.setColor(Color.rgb(colorInfo.getRedValue(), colorInfo.getGreenValue(), colorInfo.getBlueValue()));
@@ -116,16 +112,31 @@ public class MainOakActivity extends AppCompatActivity implements ColorPicker.On
         rgbIntensityBar.setOnOpacityChangedListener(this);
         whiteIntensityBar.setOnOpacityChangedListener(new WhiteIntensityOnChangedListener());
         colorPicker.setOnColorChangedListener(this);
+
+        Button onButton = (Button) findViewById(R.id.on_button);
+        Button offButton = (Button) findViewById(R.id.off_button);
+        onButton.setOnClickListener(new OnOffOnClickListener("on", this, activeDevice.getDeviceID()));
+        offButton.setOnClickListener(new OnOffOnClickListener("off", this, activeDevice.getDeviceID()));
+    }
+
+    public static void selectActiveDeviceFromSpinner(Spinner spnr, String deviceId) {
+        ParticleDeviceAdapter adapter = (ParticleDeviceAdapter) spnr.getAdapter();
+        for (int position = 0; position < adapter.getCount(); position++) {
+            if(adapter.getItem(position).getDeviceID().equals(deviceId)) {
+                spnr.setSelection(position);
+                return;
+            }
+        }
     }
 
     private ParcelableDevice getActiveDevice(final String wishedDeviceId, final List<ParcelableDevice> parcelableDeviceList) {
         for (ParcelableDevice device : parcelableDeviceList) {
-            if (DeviceStatus.CONNECTED.equals(device.getStatus()) && wishedDeviceId.equals(device.getDeviceID())) {
+            if (null != device && DeviceStatus.CONNECTED.equals(device.getStatus()) && wishedDeviceId.equals(device.getDeviceID())) {
                 return device;
             }
         }
         for (ParcelableDevice device : parcelableDeviceList) {
-            if (DeviceStatus.CONNECTED.equals(device.getStatus())) {
+            if (null != device && DeviceStatus.CONNECTED.equals(device.getStatus())) {
                 return device;
             }
         }
@@ -218,41 +229,6 @@ public class MainOakActivity extends AppCompatActivity implements ColorPicker.On
         return String.format(Locale.ENGLISH, "%03d", valueIn);
     }
 
-    /**
-     * Shows the progress UI and hides the login form.
-     */
-   /* @TargetApi(Build.VERSION_CODES.HONEYCOMB_MR2)
-    private void showProgress(final boolean show) {
-        // On Honeycomb MR2 we have the ViewPropertyAnimator APIs, which allow
-        // for very easy animations. If available, use these APIs to fade-in
-        // the progress spinner.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB_MR2) {
-            int shortAnimTime = getResources().getInteger(android.R.integer.config_shortAnimTime);
-
-            mRGBFormView.setVisibility(show ? View.GONE : View.VISIBLE);
-            mRGBFormView.animate().setDuration(shortAnimTime).alpha(
-                    show ? 0 : 1).setListener(new AnimatorListenerAdapter() {
-                @Override
-                public void onAnimationEnd(Animator animation) {
-                    mRGBFormView.setVisibility(show ? View.GONE : View.VISIBLE);
-                }
-            });
-
-            mProgressLayout.setVisibility(show ? View.VISIBLE : View.GONE);
-            mProgressLayout.animate().setDuration(shortAnimTime).alpha(
-                    show ? 1 : 0).setListener(new AnimatorListenerAdapter() {
-                @Override
-                public void onAnimationEnd(Animator animation) {
-                    mProgressLayout.setVisibility(show ? View.VISIBLE : View.GONE);
-                }
-            });
-        } else {
-            // The ViewPropertyAnimator APIs are not available, so simply show
-            // and hide the relevant UI components.
-            mProgressLayout.setVisibility(show ? View.VISIBLE : View.GONE);
-            mRGBFormView.setVisibility(show ? View.GONE : View.VISIBLE);
-        }
-    }*/
 
     private class RefreshColorFromDevice extends AsyncTask<Void, Void, ObjectWithException<ColorInfo>> {
 
@@ -319,10 +295,14 @@ public class MainOakActivity extends AppCompatActivity implements ColorPicker.On
             //Refresh from the cloud is not needed, as we search the value at login
             //new RefreshColorFromDevice().execute();
             ColorInfo colorInfo = activeDevice.getColorInfo();
-            colorPicker.setColor(Color.rgb(colorInfo.getRedValue(), colorInfo.getGreenValue(), colorInfo.getBlueValue()));
-            rgbIntensityBar.setOpacity(colorInfo.getIntensity());
-            whiteIntensityBar.setOpacity(colorInfo.getWhiteValue());
+            if (null != colorInfo) {
+                colorPicker.setColor(Color.rgb(colorInfo.getRedValue(), colorInfo.getGreenValue(), colorInfo.getBlueValue()));
+                rgbIntensityBar.setOpacity(colorInfo.getIntensity());
+                whiteIntensityBar.setOpacity(colorInfo.getWhiteValue());
+            }
         }
+
+
 
         @Override
         public void onNothingSelected(AdapterView<?> parent) {

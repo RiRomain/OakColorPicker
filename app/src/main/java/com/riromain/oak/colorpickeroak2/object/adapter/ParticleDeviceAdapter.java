@@ -62,6 +62,12 @@ public class ParticleDeviceAdapter extends ArrayAdapter<ParcelableDevice> {
         return rowView;
     }
 
+    @Override
+    public boolean isEnabled(int position) {
+        ParcelableDevice particleDevice = devicesList.get(position);
+        return DeviceStatus.CONNECTED.equals(particleDevice.getStatus());
+    }
+
     // It gets a View that displays in the drop down popup the data at the specified position
     @Override
     public View getDropDownView(int position, View convertView,
